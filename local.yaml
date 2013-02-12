@@ -1,0 +1,3 @@
+ceilometer-agent:
+  openstack-origin: "ppa:openstack-ubuntu-testing/grizzly-trunk-testing"
+  config-file: "/etc/nova/nova.conf"
