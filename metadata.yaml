@@ -15,3 +15,5 @@ requires:
   container:
     interface: juju-info
     scope: container
+  ceilometer-service:
+    interface: ceilometer

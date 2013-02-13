@@ -135,6 +135,93 @@ def get_os_version(package=None):
         return None
 
 def modify_config_file(nova_conf):
-    config = ConfigParser.ConfigParser()
-    config.read(nova_conf)
-    juju_log("INFO", str(config.items("DEFAULT")))
+    f = open(nova_conf, 'r')
+    data = f.readlines()
+    f.close()
+
+    # if lines are not in the script, add there
+    contents = ['instance_usage_audit=True', 'instance_usage_audit_period=hour', 'notification_driver=nova.openstack.common.notifier.rabbit_notifier',
+        'notification_driver=ceilometer.compute.nova_notifier']
+    for content in contents:
+        found = False
+        for line in data:
+            if content in line:
+                found = True
+                break
+
+        # not found it, write and continue
+        if not found:
+            f1 = open(nova_conf, 'a')
+            f1.write(content+"\n")
+            f1.close()
+
+def relation_ids(relation):
+    cmd = [
+        'relation-ids',
+        relation
+        ]
+    return subprocess.check_output(cmd).split()  # IGNORE:E1103
+
+def relation_list(rid):
+    cmd = [
+        'relation-list',
+        '-r', rid,
+        ]
+    return subprocess.check_output(cmd).split()  # IGNORE:E1103
+
+def relation_get(attribute, unit=None, rid=None):
+    cmd = [
+        'relation-get',
+        ]
+    if rid:
+        cmd.append('-r')
+        cmd.append(rid)
+    cmd.append(attribute)
+    if unit:
+        cmd.append(unit)
+    value = subprocess.check_output(cmd).strip()  # IGNORE:E1103
+    if value == "":
+        return None
+    else:
+        return value
+
+def relation_set(**kwargs):
+    cmd = [
+        'relation-set'
+        ]
+    args = []
+    for k, v in kwargs.items():
+        if k == 'rid':
+            cmd.append('-r')
+            cmd.append(v)
+        else:
+            args.append('{}={}'.format(k, v))
+    cmd += args
+    subprocess.check_call(cmd)
+
+def unit_get(attribute):
+    cmd = [
+        'unit-get',
+        attribute
+        ]
+    value = subprocess.check_output(cmd).strip()  # IGNORE:E1103
+    if value == "":
+        return None
+    else:
+        return value
+
+TEMPLATES_DIR = 'templates'
+
+try:
+    import jinja2
+except ImportError:
+    install('python-jinja2')
+    import jinja2
+
+def render_template(template_name, context, template_dir=TEMPLATES_DIR):
+    templates = jinja2.Environment(
+                    loader=jinja2.FileSystemLoader(template_dir)
+                    )
+    template = templates.get_template(template_name)
+    return template.render(context)
+
