@@ -15,6 +15,7 @@ import re
 import ceilometer_utils
 import ConfigParser
 
+
 def do_hooks(hooks):
     hook = os.path.basename(sys.argv[0])
 
@@ -50,6 +51,7 @@ CLOUD_ARCHIVE_POCKETS = {
     'precise-grizzly/updates': 'precise-updates/grizzly',
     'precise-grizzly/proposed': 'precise-proposed/grizzly'
     }
+
 
 def configure_source():
     source = str(config_get('openstack-origin'))
@@ -87,6 +89,7 @@ def configure_source():
         ]
     subprocess.check_call(cmd)
 
+
 def juju_log(severity, message):
     cmd = [
         'juju-log',
@@ -94,6 +97,7 @@ def juju_log(severity, message):
         message
         ]
     subprocess.check_call(cmd)
+
 
 def config_get(attribute):
     cmd = [
@@ -105,6 +109,7 @@ def config_get(attribute):
         return None
     else:
         return value
+
 
 def _service_ctl(service, action):
     subprocess.check_call(['service', service, action])
@@ -134,6 +139,7 @@ def get_os_version(package=None):
     else:
         return None
 
+
 def modify_config_file(nova_conf, values):
     try:
         config = ConfigParser.ConfigParser()
@@ -150,6 +156,7 @@ def modify_config_file(nova_conf, values):
         juju_log('ERROR', 'nova config file must exist at this point')
         sys.exit(1)
 
+
 def relation_ids(relation):
     cmd = [
         'relation-ids',
@@ -157,12 +164,14 @@ def relation_ids(relation):
         ]
     return subprocess.check_output(cmd).split()  # IGNORE:E1103
 
+
 def relation_list(rid):
     cmd = [
         'relation-list',
         '-r', rid,
         ]
     return subprocess.check_output(cmd).split()  # IGNORE:E1103
+
 
 def relation_get(attribute, unit=None, rid=None):
     cmd = [
@@ -180,6 +189,7 @@ def relation_get(attribute, unit=None, rid=None):
     else:
         return value
 
+
 def relation_set(**kwargs):
     cmd = [
         'relation-set'
@@ -193,6 +203,7 @@ def relation_set(**kwargs):
             args.append('{}={}'.format(k, v))
     cmd += args
     subprocess.check_call(cmd)
+
 
 def unit_get(attribute):
     cmd = [
@@ -212,6 +223,7 @@ try:
 except ImportError:
     install('python-jinja2')
     import jinja2
+
 
 def render_template(template_name, context, template_dir=TEMPLATES_DIR):
     templates = jinja2.Environment(
