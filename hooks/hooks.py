@@ -18,9 +18,8 @@ def container_joined():
 def ceilometer_joined():
     pass
 
-def ceilometer_changed():
-    # read settings
-    for relid in utils.relation_ids('ceilometer'):
+def get_ceilometer_conf():
+    for relid in utils.relation_ids('ceilometer-service'):
         for unit in utils.relation_list(relid):
             conf = {
                 'metering_secret': utils.relation_get('metering_secret', unit, relid),
@@ -34,7 +33,18 @@ def ceilometer_changed():
                 'keystone_host': utils.relation_get('keystone_host', unit, relid),
                 'keystone_port': utils.relation_get('keystone_port', unit, relid)
             }
-                
+
+            if None not in conf.itervalues():
+                return conf
+    return None
+
+def ceilometer_changed():
+    # read settings
+    context = get_ceilometer_conf()
+    if context:
+        with open(ceilometer_utils.CEILOMETER_CONF, "w") as conf:
+            conf.write(utils.render_template(os.path.basename(ceilometer_utils.CEILOMETER_CONF), context))
+            utils.restart(*ceilometer_utils.CEILOMETER_COMPUTE_SERVICES)
 
 utils.do_hooks({
     "install": install,
