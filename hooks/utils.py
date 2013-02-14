@@ -143,7 +143,7 @@ def modify_config_file(nova_conf, values):
         # add needed config lines - tuple with section,key,value
         for value in values:
             config.set(value[0], value[1], value[2])
-        config.write()
+        config.write(f)
 
         f.close()
     except IOError as e:
