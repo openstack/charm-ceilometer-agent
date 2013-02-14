@@ -134,26 +134,21 @@ def get_os_version(package=None):
     else:
         return None
 
-def modify_config_file(nova_conf):
-    f = open(nova_conf, 'r')
-    data = f.readlines()
-    f.close()
+def modify_config_file(nova_conf, values):
+    try:
+        config = ConfigParser.ConfigParser()
+        f = open(nova_conf, "r+")
+        config.readfp(f)
 
-    # if lines are not in the script, add there
-    contents = ['instance_usage_audit=True', 'instance_usage_audit_period=hour', 'notification_driver=nova.openstack.common.notifier.rabbit_notifier',
-        'notification_driver=ceilometer.compute.nova_notifier']
-    for content in contents:
-        found = False
-        for line in data:
-            if content in line:
-                found = True
-                break
+        # add needed config lines - tuple with section,key,value
+        for value in values:
+            config.set(value[0], value[1], value[2])
+        config.write()
 
-        # not found it, write and continue
-        if not found:
-            f1 = open(nova_conf, 'a')
-            f1.write(content+"\n")
-            f1.close()
+        f.close()
+    except IOError as e:
+        juju_log('ERROR', 'nova config file must exist at this point')
+        sys.exit(1)
 
 def relation_ids(relation):
     cmd = [

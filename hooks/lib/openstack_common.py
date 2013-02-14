@@ -11,7 +11,7 @@ ubuntu_openstack_release = {
     'oneiric': 'diablo',
     'precise': 'essex',
     'quantal': 'folsom',
-    'raring' : 'grizzly'
+    'raring': 'grizzly'
 }
 
 
@@ -66,6 +66,7 @@ def get_os_codename_install_source(src):
         for k, v in openstack_codenames.iteritems():
             if v in src:
                 return v
+
 
 def get_os_codename_version(vers):
     '''Determine OpenStack codename from version number.'''
@@ -142,7 +143,7 @@ def configure_installation_source(rel):
         subprocess.check_call(["add-apt-repository", "-y", src])
     elif rel[:3] == "deb":
         l = len(rel.split('|'))
-        if l ==  2:
+        if l == 2:
             src, key = rel.split('|')
             juju_log("Importing PPA key from keyserver for %s" % src)
             _import_key(key)
@@ -166,7 +167,8 @@ def configure_installation_source(rel):
 
         if ca_rel == 'folsom/staging':
             # staging is just a regular PPA.
-            cmd = 'add-apt-repository -y ppa:ubuntu-cloud-archive/folsom-staging'
+            cmd = 'add-apt-repository -y '\
+                'ppa:ubuntu-cloud-archive/folsom-staging'
             subprocess.check_call(cmd.split(' '))
             return
 
