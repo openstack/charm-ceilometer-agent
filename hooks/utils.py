@@ -137,7 +137,7 @@ def get_os_version(package=None):
 def modify_config_file(nova_conf, values):
     try:
         config = ConfigParser.ConfigParser()
-        f = open(nova_conf, "r+")
+        f = open(nova_conf, "rw")
         config.readfp(f)
 
         # add needed config lines - tuple with section,key,value

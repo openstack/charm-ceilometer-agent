@@ -8,5 +8,4 @@ CEILOMETER_PACKAGES = ['python-ceilometer', 'ceilometer-common', 'ceilometer-age
 NOVA_SETTINGS = [
     ('DEFAULT', 'instance_usage_audit', 'True'),
     ('DEFAULT', 'instance_usage_audit_period', 'hour'),
-    ('DEFAULT', 'notification_driver', 'nova.openstack.common.notifier.rabbit_notifier'),
     ('DEFAULT', 'notification_driver', 'ceilometer.compute.nova_notifier')]

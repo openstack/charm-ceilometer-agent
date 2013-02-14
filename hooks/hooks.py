@@ -12,6 +12,11 @@ def install():
     utils.install(*ceilometer_utils.CEILOMETER_PACKAGES)
     utils.modify_config_file(ceilometer_utils.NOVA_CONF,
         ceilometer_utils.NOVA_SETTINGS)
+
+    # add line at the end, it's a dupe and configparser doesn't handle it
+    with open(ceilometer_utils.NOVA_CONF, "a") as f:
+        f.write("notification_driver=nova.openstack.common.notifier.rabbit_notifier\n")
+
     utils.restart(*ceilometer_utils.CEILOMETER_COMPUTE_SERVICES)
 
 
