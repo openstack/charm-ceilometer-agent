@@ -33,7 +33,7 @@ def install(*pkgs):
         'apt-get',
         '-y',
         'install'
-          ]
+    ]
     for pkg in pkgs:
         cmd.append(pkg)
     subprocess.check_call(cmd)
@@ -49,15 +49,15 @@ except ImportError:
 
 def render_template(template_name, context, template_dir=TEMPLATES_DIR):
     templates = jinja2.Environment(
-                    loader=jinja2.FileSystemLoader(template_dir)
-                    )
+        loader=jinja2.FileSystemLoader(template_dir)
+    )
     template = templates.get_template(template_name)
     return template.render(context)
 
 CLOUD_ARCHIVE = \
-""" # Ubuntu Cloud Archive
-deb http://ubuntu-cloud.archive.canonical.com/ubuntu {} main
-"""
+    """ # Ubuntu Cloud Archive
+    deb http://ubuntu-cloud.archive.canonical.com/ubuntu {} main
+    """
 
 CLOUD_ARCHIVE_POCKETS = {
     'precise-folsom': 'precise-updates/folsom',
@@ -66,7 +66,7 @@ CLOUD_ARCHIVE_POCKETS = {
     'precise-grizzly': 'precise-updates/grizzly',
     'precise-grizzly/updates': 'precise-updates/grizzly',
     'precise-grizzly/proposed': 'precise-proposed/grizzly'
-    }
+}
 
 
 def configure_source():
@@ -77,7 +77,7 @@ def configure_source():
         cmd = [
             'add-apt-repository',
             source
-            ]
+        ]
         subprocess.check_call(cmd)
     if source.startswith('cloud:'):
         install('ubuntu-cloud-keyring')
@@ -92,7 +92,7 @@ def configure_source():
                 'apt-key',
                 'adv', '--keyserver keyserver.ubuntu.com',
                 '--recv-keys', key
-                ]
+            ]
             subprocess.check_call(cmd)
         elif l == 1:
             apt_line = source
@@ -102,7 +102,7 @@ def configure_source():
     cmd = [
         'apt-get',
         'update'
-        ]
+    ]
     subprocess.check_call(cmd)
 
 # Protocols
@@ -114,7 +114,7 @@ def expose(port, protocol='TCP'):
     cmd = [
         'open-port',
         '{}/{}'.format(port, protocol)
-        ]
+    ]
     subprocess.check_call(cmd)
 
 
@@ -122,7 +122,7 @@ def unexpose(port, protocol='TCP'):
     cmd = [
         'close-port',
         '{}/{}'.format(port, protocol)
-        ]
+    ]
     subprocess.check_call(cmd)
 
 
@@ -131,7 +131,7 @@ def juju_log(severity, message):
         'juju-log',
         '--log-level', severity,
         message
-        ]
+    ]
     subprocess.check_call(cmd)
 
 
@@ -139,7 +139,7 @@ def relation_ids(relation):
     cmd = [
         'relation-ids',
         relation
-        ]
+    ]
     return subprocess.check_output(cmd).split()  # IGNORE:E1103
 
 
@@ -147,14 +147,14 @@ def relation_list(rid):
     cmd = [
         'relation-list',
         '-r', rid,
-        ]
+    ]
     return subprocess.check_output(cmd).split()  # IGNORE:E1103
 
 
 def relation_get(attribute, unit=None, rid=None):
     cmd = [
         'relation-get',
-        ]
+    ]
     if rid:
         cmd.append('-r')
         cmd.append(rid)
@@ -171,7 +171,7 @@ def relation_get(attribute, unit=None, rid=None):
 def relation_set(**kwargs):
     cmd = [
         'relation-set'
-        ]
+    ]
     args = []
     for k, v in kwargs.items():
         if k == 'rid':
@@ -187,7 +187,7 @@ def unit_get(attribute):
     cmd = [
         'unit-get',
         attribute
-        ]
+    ]
     value = subprocess.check_output(cmd).strip()  # IGNORE:E1103
     if value == "":
         return None
@@ -199,7 +199,7 @@ def config_get(attribute):
     cmd = [
         'config-get',
         attribute
-        ]
+    ]
     value = subprocess.check_output(cmd).strip()  # IGNORE:E1103
     if value == "":
         return None
