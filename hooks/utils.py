@@ -13,7 +13,7 @@ import sys
 import apt_pkg as apt
 import re
 import ceilometer_utils
-import ConfigParser
+import dns.resolver
 
 
 def do_hooks(hooks):
@@ -37,6 +37,22 @@ def install(*pkgs):
     for pkg in pkgs:
         cmd.append(pkg)
     subprocess.check_call(cmd)
+
+TEMPLATES_DIR = 'templates'
+
+try:
+    import jinja2
+except ImportError:
+    install('python-jinja2')
+    import jinja2
+
+
+def render_template(template_name, context, template_dir=TEMPLATES_DIR):
+    templates = jinja2.Environment(
+                    loader=jinja2.FileSystemLoader(template_dir)
+                    )
+    template = templates.get_template(template_name)
+    return template.render(context)
 
 CLOUD_ARCHIVE = \
 """ # Ubuntu Cloud Archive
@@ -89,6 +105,26 @@ def configure_source():
         ]
     subprocess.check_call(cmd)
 
+# Protocols
+TCP = 'TCP'
+UDP = 'UDP'
+
+
+def expose(port, protocol='TCP'):
+    cmd = [
+        'open-port',
+        '{}/{}'.format(port, protocol)
+        ]
+    subprocess.check_call(cmd)
+
+
+def unexpose(port, protocol='TCP'):
+    cmd = [
+        'close-port',
+        '{}/{}'.format(port, protocol)
+        ]
+    subprocess.check_call(cmd)
+
 
 def juju_log(severity, message):
     cmd = [
@@ -97,64 +133,6 @@ def juju_log(severity, message):
         message
         ]
     subprocess.check_call(cmd)
-
-
-def config_get(attribute):
-    cmd = [
-        'config-get',
-        attribute
-        ]
-    value = subprocess.check_output(cmd).strip()  # IGNORE:E1103
-    if value == "":
-        return None
-    else:
-        return value
-
-
-def _service_ctl(service, action):
-    subprocess.check_call(['service', service, action])
-
-
-def restart(*services):
-    for service in services:
-        _service_ctl(service, 'restart')
-
-
-def stop(*services):
-    for service in services:
-        _service_ctl(service, 'stop')
-
-
-def start(*services):
-    for service in services:
-        _service_ctl(service, 'start')
-
-
-def get_os_version(package=None):
-    apt.init()
-    cache = apt.Cache()
-    pkg = cache[package or 'quantum-common']
-    if pkg.current_ver:
-        return apt.upstream_version(pkg.current_ver.ver_str)
-    else:
-        return None
-
-
-def modify_config_file(nova_conf, values):
-    try:
-        config = ConfigParser.ConfigParser()
-        f = open(nova_conf, "rw")
-        config.readfp(f)
-
-        # add needed config lines - tuple with section,key,value
-        for value in values:
-            config.set(value[0], value[1], value[2])
-        config.write(f)
-
-        f.close()
-    except IOError as e:
-        juju_log('ERROR', 'nova config file must exist at this point')
-        sys.exit(1)
 
 
 def relation_ids(relation):
@@ -216,19 +194,60 @@ def unit_get(attribute):
     else:
         return value
 
-TEMPLATES_DIR = 'templates'
 
-try:
-    import jinja2
-except ImportError:
-    install('python-jinja2')
-    import jinja2
+def config_get(attribute):
+    cmd = [
+        'config-get',
+        attribute
+        ]
+    value = subprocess.check_output(cmd).strip()  # IGNORE:E1103
+    if value == "":
+        return None
+    else:
+        return value
 
 
-def render_template(template_name, context, template_dir=TEMPLATES_DIR):
-    templates = jinja2.Environment(
-                    loader=jinja2.FileSystemLoader(template_dir)
-                    )
-    template = templates.get_template(template_name)
-    return template.render(context)
+def get_unit_hostname():
+    return socket.gethostname()
 
+
+def get_host_ip(hostname=unit_get('private-address')):
+    try:
+        # Test to see if already an IPv4 address
+        socket.inet_aton(hostname)
+        return hostname
+    except socket.error:
+        pass
+    answers = dns.resolver.query(hostname, 'A')
+    if answers:
+        return answers[0].address
+    return None
+
+
+def _service_ctl(service, action):
+    subprocess.check_call(['service', service, action])
+
+
+def restart(*services):
+    for service in services:
+        _service_ctl(service, 'restart')
+
+
+def stop(*services):
+    for service in services:
+        _service_ctl(service, 'stop')
+
+
+def start(*services):
+    for service in services:
+        _service_ctl(service, 'start')
+
+
+def get_os_version(package=None):
+    apt.init()
+    cache = apt.Cache()
+    pkg = cache[package or 'quantum-common']
+    if pkg.current_ver:
+        return apt.upstream_version(pkg.current_ver.ver_str)
+    else:
+        return None

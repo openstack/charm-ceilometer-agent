@@ -9,7 +9,7 @@ import ceilometer_utils
 
 def install():
     utils.configure_source()
-    utils.install(*ceilometer_utils.CEILOMETER_PACKAGES)
+    utils.install(*ceilometer_utils.CEILOMETER_AGENT_PACKAGES)
     utils.modify_config_file(ceilometer_utils.NOVA_CONF,
         ceilometer_utils.NOVA_SETTINGS)
 
