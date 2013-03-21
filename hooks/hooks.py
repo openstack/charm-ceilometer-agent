@@ -19,7 +19,7 @@ def get_conf():
     for relid in utils.relation_ids('ceilometer-service'):
         for unit in utils.relation_list(relid):
             conf = {
-                "rabbit_host": utils.relation_get('private-address', unit, relid),
+                "rabbit_host": utils.relation_get('rabbit_host', unit, relid),
                 "rabbit_virtual_host": ceilometer_utils.RABBIT_VHOST,
                 "rabbit_userid": ceilometer_utils.RABBIT_USER,
                 "rabbit_password": utils.relation_get('rabbit_password', unit, relid),
