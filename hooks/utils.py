@@ -13,7 +13,6 @@ import sys
 import apt_pkg as apt
 import re
 import ceilometer_utils
-import dns.resolver
 
 
 def do_hooks(hooks):
@@ -209,19 +208,6 @@ def config_get(attribute):
 
 def get_unit_hostname():
     return socket.gethostname()
-
-
-def get_host_ip(hostname=unit_get('private-address')):
-    try:
-        # Test to see if already an IPv4 address
-        socket.inet_aton(hostname)
-        return hostname
-    except socket.error:
-        pass
-    answers = dns.resolver.query(hostname, 'A')
-    if answers:
-        return answers[0].address
-    return None
 
 
 def _service_ctl(service, action):
