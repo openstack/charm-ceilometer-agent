@@ -9,7 +9,7 @@ import ceilometer_utils
 
 def install():
     utils.configure_source()
-    utils.install(*ceilometer_utils.CEILOMETER_PACKAGES)
+    utils.install(*ceilometer_utils.CEILOMETER_AGENT_PACKAGES)
 
     port = ceilometer_utils.CEILOMETER_PORT
     utils.expose(port)
