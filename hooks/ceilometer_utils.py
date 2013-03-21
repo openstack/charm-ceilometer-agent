@@ -16,6 +16,7 @@ CEILOMETER_PACKAGES = ['python-ceilometer', 'ceilometer-common',
     'ceilometer-agent-central', 'ceilometer-collector', 'ceilometer-api']
 CEILOMETER_AGENT_PACKAGES = ['python-ceilometer', 'ceilometer-common',
     'ceilometer-agent-compute']
+CEILOMETER_PORT = 8777
 
 NOVA_CONF = "/etc/nova/nova.conf"
 NOVA_SETTINGS = [
