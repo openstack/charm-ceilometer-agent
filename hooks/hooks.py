@@ -35,8 +35,6 @@ def get_conf():
     return None
 
 def render_ceilometer_conf(context):
-    context = get_conf()
-
     if (context and os.path.exists(ceilometer_utils.CEILOMETER_CONF)):
         # merge contexts
         context['service_port'] = ceilometer_utils.CEILOMETER_PORT
@@ -50,12 +48,6 @@ def render_ceilometer_conf(context):
     return False
 
 
-def ceilometer_joined():
-    metering_secret = ceilometer_utils.get_shared_secret()
-    for relid in utils.relation_ids('ceilometer-service'):
-        utils.relation_set(metering_secret=metering_secret, rid=relid)
-
-
 def ceilometer_changed():
     # check if we have rabbit and keystone already set
     context = get_conf()
@@ -66,9 +58,9 @@ def ceilometer_changed():
         utils.juju_log("INFO", "ceilometer: rabbit and keystone " +
             "credentials not yet received from peer.")
 
+
 utils.do_hooks({
     "install": install,
-    "ceilometer-service-relation-joined": ceilometer_joined,
     "ceilometer-service-relation-changed": ceilometer_changed
 })
 sys.exit(0)
