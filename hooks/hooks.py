@@ -52,7 +52,7 @@ def ceilometer_changed():
     # check if we have rabbit and keystone already set
     context = get_conf()
     if context:
-            render_ceilometer_conf(conf)
+            render_ceilometer_conf(context)
     else:
         # still waiting
         utils.juju_log("INFO", "ceilometer: rabbit and keystone " +
