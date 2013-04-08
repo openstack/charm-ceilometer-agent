@@ -55,7 +55,10 @@ def modify_config_file(nova_conf, values):
         with open(nova_conf, "w") as f:
             config.write(f)
 
-        f.close()
+        # add line at the end, it's a dupe and configparser doesn't handle it
+        with open(nova_conf, "a") as f:
+            f.write("notification_driver=nova.openstack.common.notifier.rabbit_notifier\n")
+
     except IOError as e:
         juju_log('ERROR', 'Error updating nova config file')
         sys.exit(1)

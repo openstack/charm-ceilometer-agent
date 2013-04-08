@@ -10,6 +10,8 @@ import ceilometer_utils
 def install():
     utils.configure_source()
     utils.install(*ceilometer_utils.CEILOMETER_AGENT_PACKAGES)
+    ceilometer_utils.modify_config_file(ceilometer_utils.NOVA_CONF, 
+        ceilometer_utils.NOVA_SETTINGS)
 
     port = ceilometer_utils.CEILOMETER_PORT
     utils.expose(port)
@@ -38,6 +40,7 @@ def render_ceilometer_conf(context):
     if (context and os.path.exists(ceilometer_utils.CEILOMETER_CONF)):
         # merge contexts
         context['service_port'] = ceilometer_utils.CEILOMETER_PORT
+        context['ceilometer_host'] = utils.get_unit_hostname()
 
         with open(ceilometer_utils.CEILOMETER_CONF, "w") as conf:
             conf.write(utils.render_template(
