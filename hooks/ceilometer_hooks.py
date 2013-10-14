@@ -3,7 +3,7 @@
 import sys
 import os
 import ceilometer_utils
-import socket.gethostname as get_host_name
+from socket import gethostname as get_host_name
 
 from charmhelpers.fetch import (
     apt_install, filter_installed_packages,
