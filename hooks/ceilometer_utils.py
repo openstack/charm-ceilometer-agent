@@ -1,29 +1,21 @@
-import os
-import uuid
-from charmhelpers.fetch import apt_install as install
+from charmhelpers.contrib.openstack import (
+    templating,
+)
+from ceilometer_contexts import (
+    CeilometerServiceContext
+)
+from charmhelpers.contrib.openstack.utils import (
+    get_os_codename_package
+)
 
-RABBIT_USER = "ceilometer"
-RABBIT_VHOST = "ceilometer"
 CEILOMETER_CONF = "/etc/ceilometer/ceilometer.conf"
 
-SHARED_SECRET = "/etc/ceilometer/secret.txt"
-CEILOMETER_SERVICES = [
-    'ceilometer-agent-central', 'ceilometer-collector',
-    'ceilometer-api'
-]
-CEILOMETER_DB = "ceilometer"
-CEILOMETER_SERVICE = "ceilometer"
-CEILOMETER_COMPUTE_SERVICES = ['ceilometer-agent-compute']
-CEILOMETER_PACKAGES = [
-    'python-ceilometer', 'ceilometer-common',
-    'ceilometer-agent-central', 'ceilometer-collector', 'ceilometer-api'
-]
+CEILOMETER_AGENT_SERVICES = ['ceilometer-agent-compute']
+
 CEILOMETER_AGENT_PACKAGES = [
     'python-ceilometer', 'ceilometer-common',
     'ceilometer-agent-compute'
 ]
-CEILOMETER_PORT = 8777
-CEILOMETER_ROLE = "ResellerAdmin"
 
 NOVA_CONF = "/etc/nova/nova.conf"
 NOVA_SETTINGS = [
@@ -32,30 +24,49 @@ NOVA_SETTINGS = [
     ('DEFAULT', 'notification_driver', 'ceilometer.compute.nova_notifier')
 ]
 
+CONFIG_FILES = {
+    CEILOMETER_CONF: {
+        'hook_contexts': [CeilometerServiceContext()],
+        'services': CEILOMETER_AGENT_SERVICES
+    }
+}
 
-def get_shared_secret():
-    secret = None
-    if not os.path.exists(SHARED_SECRET):
-        secret = str(uuid.uuid4())
-        with open(SHARED_SECRET, 'w') as secret_file:
-            secret_file.write(secret)
-    else:
-        with open(SHARED_SECRET, 'r') as secret_file:
-            secret = secret_file.read().strip()
-    return secret
+TEMPLATES = 'templates'
 
 
-TEMPLATES_DIR = 'templates'
+def register_configs():
+    """
+    Register config files with their respective contexts.
+    Regstration of some configs may not be required depending on
+    existing of certain relations.
+    """
+    # if called without anything installed (eg during install hook)
+    # just default to earliest supported release. configs dont get touched
+    # till post-install, anyway.
+    release = get_os_codename_package('ceilometer-common', fatal=False) \
+                or 'grizzly'
+    configs = templating.OSConfigRenderer(templates_dir=TEMPLATES,
+                                          openstack_release=release)
 
-try:
-    import jinja2
-except ImportError:
-    install(['python-jinja2'])
-    import jinja2
+    for conf in CONFIG_FILES:
+        configs.register(conf, CONFIG_FILES[conf]['hook_contexts'])
+
+    return configs
 
 
-def render_template(template_name, context, template_dir=TEMPLATES_DIR):
-    templates = \
-        jinja2.Environment(loader=jinja2.FileSystemLoader(template_dir))
-    template = templates.get_template(template_name)
-    return template.render(context)
+def restart_map():
+    '''
+    Determine the correct resource map to be passed to
+    charmhelpers.core.restart_on_change() based on the services configured.
+
+    :returns: dict: A dictionary mapping config file to lists of services
+                    that should be restarted when file changes.
+    '''
+    _map = {}
+    for f, ctxt in CONFIG_FILES.iteritems():
+        svcs = []
+        for svc in ctxt['services']:
+            svcs.append(svc)
+        if svcs:
+            _map[f] = svcs
+    return _map

@@ -85,7 +85,7 @@ def neutron_plugin_attribute(plugin, attr, net_manager=None):
         _plugin = plugins[plugin]
     except KeyError:
         log('Unrecognised plugin for %s: %s' % (manager, plugin), level=ERROR)
-        raise
+        raise Exception
 
     try:
         return _plugin[attr]
@@ -108,7 +108,7 @@ def network_manager():
     if release in ['essex']:
         # E does not support neutron
         log('Neutron networking not supported in Essex.', level=ERROR)
-        raise
+        raise Exception
     elif release in ['folsom', 'grizzly']:
         # neutron is named quantum in F and G
         return 'quantum'
