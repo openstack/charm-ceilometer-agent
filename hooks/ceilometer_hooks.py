@@ -42,7 +42,8 @@ def install():
     #    ceilometer_utils.NOVA_SETTINGS)
 
 
-@hooks.hook("ceilometer-service-relation-changed")
+@hooks.hook("ceilometer-service-relation-changed",
+            "upgrade-charm")
 @restart_on_change(restart_map())
 def ceilometer_changed():
     CONFIGS.write_all()
