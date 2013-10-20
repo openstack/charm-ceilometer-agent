@@ -11,6 +11,9 @@ description: |
  .
  This charm should be used in conjunction with the ceilometer and nova charm to collect 
  Openstack measures.
+categories:
+  - miscellanous
+  - openstack
 requires:
   container:
     interface: juju-info

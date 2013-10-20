@@ -7,9 +7,6 @@ from charmhelpers.fetch import (
 )
 from charmhelpers.core.hookenv import (
     config,
-    relation_ids,
-    related_units,
-    relation_get,
     Hooks, UnregisteredHookError,
     log
 )
@@ -37,9 +34,9 @@ def install():
         filter_installed_packages(CEILOMETER_AGENT_PACKAGES),
         fatal=True)
 
-    # TODO(jamespage): Locally scoped relation for nova and others
-    #ceilometer_utils.modify_config_file(ceilometer_utils.NOVA_CONF, 
-    #    ceilometer_utils.NOVA_SETTINGS)
+# TODO(jamespage): Locally scoped relation for nova and others
+#ceilometer_utils.modify_config_file(ceilometer_utils.NOVA_CONF
+#    ceilometer_utils.NOVA_SETTINGS)
 
 
 @hooks.hook("ceilometer-service-relation-changed",
