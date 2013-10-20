@@ -9,10 +9,10 @@ description: |
  framework should be easily expandable to collect for other needs. To that 
  effect, Ceilometer should be able to share collected data with a variety of consumers.
  .
- This charm should be used in conjunction with the ceilometer and nova charm to collect 
+ This charm should be used in conjunction with the ceilometer and nova charm to collect
  Openstack measures.
 categories:
-  - miscellanous
+  - miscellaneous
   - openstack
 requires:
   container:
