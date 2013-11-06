@@ -79,9 +79,25 @@ def apt_purge(packages, fatal=False):
         subprocess.call(cmd)
 
 
+def apt_hold(packages, fatal=False):
+    """Hold one or more packages"""
+    cmd = ['apt-mark', 'hold']
+    if isinstance(packages, basestring):
+        cmd.append(packages)
+    else:
+        cmd.extend(packages)
+    log("Holding {}".format(packages))
+    if fatal:
+        subprocess.check_call(cmd)
+    else:
+        subprocess.call(cmd)
+
+
 def add_source(source, key=None):
-    if ((source.startswith('ppa:') or
-         source.startswith('http:'))):
+    if (source.startswith('ppa:') or
+        source.startswith('http:') or
+        source.startswith('deb ') or
+        source.startswith('cloud-archive:')):
         subprocess.check_call(['add-apt-repository', '--yes', source])
     elif source.startswith('cloud:'):
         apt_install(filter_installed_packages(['ubuntu-cloud-keyring']),
@@ -118,8 +134,11 @@ def configure_sources(update=False,
     Note that 'null' (a.k.a. None) should not be quoted.
     """
     sources = safe_load(config(sources_var))
-    keys = safe_load(config(keys_var))
-    if isinstance(sources, basestring) and isinstance(keys, basestring):
+    keys = config(keys_var)
+    if keys is not None:
+        keys = safe_load(keys)
+    if isinstance(sources, basestring) and (
+            keys is None or isinstance(keys, basestring)):
         add_source(sources, keys)
     else:
         if not len(sources) == len(keys):
