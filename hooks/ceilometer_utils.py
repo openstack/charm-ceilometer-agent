@@ -18,11 +18,20 @@ CEILOMETER_AGENT_PACKAGES = [
 ]
 
 NOVA_CONF = "/etc/nova/nova.conf"
-NOVA_SETTINGS = [
-    ('DEFAULT', 'instance_usage_audit', 'True'),
-    ('DEFAULT', 'instance_usage_audit_period', 'hour'),
-    ('DEFAULT', 'notification_driver', 'ceilometer.compute.nova_notifier')
-]
+
+NOVA_SETTINGS = {
+    "nova": {
+        "/etc/nova/nova.conf": {
+            "sections": {
+                "DEFAULT": [
+                    ('instance_usage_audit', 'True'),
+                    ('instance_usage_audit_period', 'hour'),
+                    ('notification_driver', 'ceilometer.compute.nova_notifier')
+                ]
+            }
+        }
+    }
+}
 
 CONFIG_FILES = {
     CEILOMETER_CONF: {

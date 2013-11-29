@@ -58,6 +58,7 @@ def get_default_config():
 
 
 class CharmTestCase(unittest.TestCase):
+
     def setUp(self, obj, patches):
         super(CharmTestCase, self).setUp()
         self.patches = patches
@@ -78,6 +79,7 @@ class CharmTestCase(unittest.TestCase):
 
 
 class TestConfig(object):
+
     def __init__(self):
         self.config = get_default_config()
 
@@ -97,6 +99,7 @@ class TestConfig(object):
 
 
 class TestRelation(object):
+
     def __init__(self, relation_data={}):
         self.relation_data = relation_data
 

@@ -1,3 +1,4 @@
+import json
 from mock import patch, MagicMock
 
 import ceilometer_utils
@@ -19,6 +20,7 @@ TO_PATCH = [
     'config',
     'filter_installed_packages',
     'CONFIGS',
+    'relation_set',
 ]
 
 
@@ -46,3 +48,8 @@ class CeilometerHooksTest(CharmTestCase):
     def test_ceilometer_changed(self):
         hooks.hooks.execute(['hooks/ceilometer-service-relation-changed'])
         self.assertTrue(self.CONFIGS.write_all.called)
+
+    def test_nova_ceilometer_joined(self):
+        hooks.hooks.execute(['hooks/nova-ceilometer-relation-joined'])
+        self.relation_set.assert_called_with(
+            subordinate_configuration=json.dumps(ceilometer_utils.NOVA_SETTINGS))

@@ -14,6 +14,10 @@ description: |
 categories:
   - miscellaneous
   - openstack
+provides:
+  nova-ceilometer:
+    interface: nova-ceilometer
+    scope: container
 requires:
   container:
     interface: juju-info

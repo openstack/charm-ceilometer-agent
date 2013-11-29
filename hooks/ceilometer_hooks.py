@@ -1,6 +1,7 @@
 #!/usr/bin/python
 
 import sys
+import json
 from charmhelpers.fetch import (
     apt_install, filter_installed_packages,
     apt_update
@@ -8,7 +9,8 @@ from charmhelpers.fetch import (
 from charmhelpers.core.hookenv import (
     config,
     Hooks, UnregisteredHookError,
-    log
+    log,
+    relation_set
 )
 from charmhelpers.core.host import (
     restart_on_change
@@ -19,7 +21,8 @@ from charmhelpers.contrib.openstack.utils import (
 from ceilometer_utils import (
     restart_map,
     register_configs,
-    CEILOMETER_AGENT_PACKAGES
+    CEILOMETER_AGENT_PACKAGES,
+    NOVA_SETTINGS
 )
 
 hooks = Hooks()
@@ -34,9 +37,10 @@ def install():
         filter_installed_packages(CEILOMETER_AGENT_PACKAGES),
         fatal=True)
 
-# TODO(jamespage): Locally scoped relation for nova and others
-#ceilometer_utils.modify_config_file(ceilometer_utils.NOVA_CONF
-#    ceilometer_utils.NOVA_SETTINGS)
+
+@hooks.hook('nova-ceilometer-relation-joined')
+def nova_ceilometer_joined():
+    relation_set(subordinate_configuration=json.dumps(NOVA_SETTINGS))
 
 
 @hooks.hook("ceilometer-service-relation-changed",
