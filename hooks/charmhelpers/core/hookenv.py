@@ -285,6 +285,26 @@ def relations():
     return rels
 
 
+@cached
+def is_relation_made(relation, keys='private-address'):
+    '''
+    Determine whether a relation is established by checking for
+    presence of key(s).  If a list of keys is provided, they
+    must all be present for the relation to be identified as made
+    '''
+    if isinstance(keys, str):
+        keys = [keys]
+    for r_id in relation_ids(relation):
+        for unit in related_units(r_id):
+            context = {}
+            for k in keys:
+                context[k] = relation_get(k, rid=r_id,
+                                          unit=unit)
+            if None not in context.values():
+                return True
+    return False
+
+
 def open_port(port, protocol="TCP"):
     """Open a service network port"""
     _args = ['open-port']
