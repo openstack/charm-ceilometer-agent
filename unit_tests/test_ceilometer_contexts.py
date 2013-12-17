@@ -24,8 +24,19 @@ class CeilometerContextsTest(CharmTestCase):
         self.relation_ids.return_value = ['ceilometer-service:0']
         self.related_units.return_value = ['ceilometer/0']
         data = {
-            'metering_secret': 'mysecret',
-            'keystone_host': 'test'
+            'debug': True,
+            'verbose': False,
+            'rabbitmq_host': 'foo',
+            'rabbitmq_user': 'bar',
+            'rabbitmq_password': 'baz',
+            'rabbitmq_virtual_host': 'openstack',
+            'auth_protocol': 'http',
+            'auth_host': 'keystone',
+            'auth_port': '80',
+            'admin_tenant_name': 'admin',
+            'admin_user': 'admin',
+            'admin_password': 'password',
+            'metering_secret': 'secret'
         }
         self.test_relation.set(data)
         self.assertEquals(contexts.CeilometerServiceContext()(), data)
