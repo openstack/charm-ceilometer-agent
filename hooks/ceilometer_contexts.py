@@ -1,3 +1,6 @@
+import base64
+import os
+
 from charmhelpers.core.hookenv import (
     relation_ids,
     relation_get,
@@ -28,13 +31,30 @@ class CeilometerServiceContext(OSContextGenerator):
         'metering_secret'
     ]
 
+    optional_keys = [
+        'rabbitmq_ssl_port',
+        'rabbitmq_ssl_ca'
+    ]
+
+    def __init__(self, ssl_dir):
+        self.ssl_dir = ssl_dir
+
     def __call__(self):
         for relid in relation_ids('ceilometer-service'):
             for unit in related_units(relid):
                 conf = {}
                 for attr in self.keys:
-                    conf[attr] = relation_get(attr,
-                                              unit=unit, rid=relid)
+                    conf[attr] = relation_get(
+                        attr, unit=unit, rid=relid)
                 if context_complete(conf):
+                    for attr in self.optional_keys:
+                        conf[attr] = relation_get(
+                            attr, unit=unit, rid=relid)
+                    if 'rabbit_ssl_ca' in conf:
+                        ca_path = os.path.join(
+                            self.ssl_dir, 'rabbit-client-ca.pem')
+                        with open(ca_path, 'w') as fh:
+                            fh.write(base64.b64decode(conf['rabbit_ssl_ca']))
+                            conf['rabbit_ssl_ca'] = ca_path
                     return conf
         return {}

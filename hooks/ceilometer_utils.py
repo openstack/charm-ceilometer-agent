@@ -8,7 +8,8 @@ from charmhelpers.contrib.openstack.utils import (
     get_os_codename_package
 )
 
-CEILOMETER_CONF = "/etc/ceilometer/ceilometer.conf"
+CEILOMETER_CONF_DIR = "/etc/ceilometer"
+CEILOMETER_CONF = "%s/ceilometer.conf" % CEILOMETER_CONF_DIR
 
 CEILOMETER_AGENT_SERVICES = ['ceilometer-agent-compute']
 
@@ -39,7 +40,8 @@ NOVA_SETTINGS = {
 
 CONFIG_FILES = {
     CEILOMETER_CONF: {
-        'hook_contexts': [CeilometerServiceContext()],
+        'hook_contexts': [
+            CeilometerServiceContext(ssl_dir=CEILOMETER_CONF_DIR)],
         'services': CEILOMETER_AGENT_SERVICES
     }
 }
