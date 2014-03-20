@@ -22,4 +22,5 @@ def zap_disk(block_device):
 
     :param block_device: str: Full path of block device to clean.
     '''
-    check_call(['sgdisk', '--zap-all', '--mbrtogpt', block_device])
+    check_call(['sgdisk', '--zap-all', '--clear',
+                '--mbrtogpt', block_device])
