@@ -32,11 +32,11 @@ class CeilometerServiceContext(OSContextGenerator):
     ]
 
     optional_keys = [
-        'rabbitmq_ssl_port',
-        'rabbitmq_ssl_ca'
+        'rabbit_ssl_port',
+        'rabbit_ssl_ca'
     ]
 
-    def __init__(self, ssl_dir):
+    def __init__(self, ssl_dir=None):
         self.ssl_dir = ssl_dir
 
     def __call__(self):
@@ -48,9 +48,8 @@ class CeilometerServiceContext(OSContextGenerator):
                         attr, unit=unit, rid=relid)
                 if context_complete(conf):
                     for attr in self.optional_keys:
-                        conf[attr] = relation_get(
-                            attr, unit=unit, rid=relid)
-                    if 'rabbit_ssl_ca' in conf:
+                        conf[attr] = relation_get(attr, unit=unit, rid=relid)
+                    if conf.get('rabbit_ssl_ca') is not None:
                         ca_path = os.path.join(
                             self.ssl_dir, 'rabbit-client-ca.pem')
                         with open(ca_path, 'w') as fh:
