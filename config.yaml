@@ -1,6 +1,6 @@
 options:
   openstack-origin:
-    default: cloud:precise-folsom
+    default: distro
     type: string
     description: |
       Repository from which to install.  May be one of the following:
