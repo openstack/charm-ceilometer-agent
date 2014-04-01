@@ -5,8 +5,15 @@ from ceilometer_contexts import (
     CeilometerServiceContext
 )
 from charmhelpers.contrib.openstack.utils import (
-    get_os_codename_package
+    get_os_codename_package,
+    get_os_codename_install_source,
+    configure_installation_source
 )
+from charmhelpers.core.hookenv import (
+    config,
+    log,
+)
+from charmhelpers.fetch import apt_update, apt_install, apt_upgrade
 
 CEILOMETER_CONF_DIR = "/etc/ceilometer"
 CEILOMETER_CONF = "%s/ceilometer.conf" % CEILOMETER_CONF_DIR
@@ -85,3 +92,31 @@ def restart_map():
         if svcs:
             _map[f] = svcs
     return _map
+
+
+def do_openstack_upgrade(configs):
+    """
+    Perform an upgrade.  Takes care of upgrading packages, rewriting
+    configs, database migrations and potentially any other post-upgrade
+    actions.
+
+    :param configs: The charms main OSConfigRenderer object.
+    """
+    new_src = config('openstack-origin')
+    new_os_rel = get_os_codename_install_source(new_src)
+
+    log('Performing OpenStack upgrade to %s.' % (new_os_rel))
+
+    configure_installation_source(new_src)
+    dpkg_opts = [
+        '--option', 'Dpkg::Options::=--force-confnew',
+        '--option', 'Dpkg::Options::=--force-confdef',
+    ]
+    apt_update(fatal=True)
+    apt_upgrade(options=dpkg_opts, fatal=True, dist=True)
+    apt_install(packages=CEILOMETER_AGENT_PACKAGES,
+                options=dpkg_opts,
+                fatal=True)
+
+    # set CONFIGS to load templates from new release
+    configs.set_release(openstack_release=new_os_rel)

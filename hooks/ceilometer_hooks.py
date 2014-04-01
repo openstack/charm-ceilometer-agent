@@ -17,13 +17,15 @@ from charmhelpers.core.host import (
     lsb_release,
 )
 from charmhelpers.contrib.openstack.utils import (
-    configure_installation_source
+    configure_installation_source,
+    openstack_upgrade_available
 )
 from ceilometer_utils import (
     restart_map,
     register_configs,
     CEILOMETER_AGENT_PACKAGES,
-    NOVA_SETTINGS
+    NOVA_SETTINGS,
+    do_openstack_upgrade
 )
 
 hooks = Hooks()
@@ -54,6 +56,13 @@ def nova_ceilometer_joined():
 def ceilometer_changed():
     CONFIGS.write_all()
 
+
+@hooks.hook('config-changed')
+@restart_on_change(restart_map(), stopstart=True)
+def config_changed():
+    if openstack_upgrade_available('ceilometer-common'):
+        do_openstack_upgrade(CONFIGS)
+    CONFIGS.write_all()
 
 if __name__ == '__main__':
     try:
