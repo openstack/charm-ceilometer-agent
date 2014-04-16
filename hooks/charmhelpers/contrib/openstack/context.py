@@ -1,5 +1,6 @@
 import json
 import os
+import time
 
 from base64 import b64decode
 
@@ -23,15 +24,13 @@ from charmhelpers.core.hookenv import (
     unit_get,
     unit_private_ip,
     ERROR,
-    WARNING,
 )
 
 from charmhelpers.contrib.hahelpers.cluster import (
+    determine_apache_port,
     determine_api_port,
-    determine_haproxy_port,
     https,
-    is_clustered,
-    peer_units,
+    is_clustered
 )
 
 from charmhelpers.contrib.hahelpers.apache import (
@@ -68,6 +67,43 @@ def context_complete(ctxt):
     return True
 
 
+def config_flags_parser(config_flags):
+    if config_flags.find('==') >= 0:
+        log("config_flags is not in expected format (key=value)",
+            level=ERROR)
+        raise OSContextError
+    # strip the following from each value.
+    post_strippers = ' ,'
+    # we strip any leading/trailing '=' or ' ' from the string then
+    # split on '='.
+    split = config_flags.strip(' =').split('=')
+    limit = len(split)
+    flags = {}
+    for i in xrange(0, limit - 1):
+        current = split[i]
+        next = split[i + 1]
+        vindex = next.rfind(',')
+        if (i == limit - 2) or (vindex < 0):
+            value = next
+        else:
+            value = next[:vindex]
+
+        if i == 0:
+            key = current
+        else:
+            # if this not the first entry, expect an embedded key.
+            index = current.rfind(',')
+            if index < 0:
+                log("invalid config value(s) at index %s" % (i),
+                    level=ERROR)
+                raise OSContextError
+            key = current[index + 1:]
+
+        # Add to collection.
+        flags[key.strip(post_strippers)] = value.rstrip(post_strippers)
+    return flags
+
+
 class OSContextGenerator(object):
     interfaces = []
 
@@ -78,7 +114,8 @@ class OSContextGenerator(object):
 class SharedDBContext(OSContextGenerator):
     interfaces = ['shared-db']
 
-    def __init__(self, database=None, user=None, relation_prefix=None):
+    def __init__(self,
+                 database=None, user=None, relation_prefix=None, ssl_dir=None):
         '''
         Allows inspecting relation for settings prefixed with relation_prefix.
         This is useful for parsing access for multiple databases returned via
@@ -87,6 +124,7 @@ class SharedDBContext(OSContextGenerator):
         self.relation_prefix = relation_prefix
         self.database = database
         self.user = user
+        self.ssl_dir = ssl_dir
 
     def __call__(self):
         self.database = self.database or config('database')
@@ -104,17 +142,72 @@ class SharedDBContext(OSContextGenerator):
 
         for rid in relation_ids('shared-db'):
             for unit in related_units(rid):
-                passwd = relation_get(password_setting, rid=rid, unit=unit)
+                rdata = relation_get(rid=rid, unit=unit)
                 ctxt = {
-                    'database_host': relation_get('db_host', rid=rid,
-                                                  unit=unit),
+                    'database_host': rdata.get('db_host'),
                     'database': self.database,
                     'database_user': self.user,
-                    'database_password': passwd,
+                    'database_password': rdata.get(password_setting),
+                    'database_type': 'mysql'
+                }
+                if context_complete(ctxt):
+                    db_ssl(rdata, ctxt, self.ssl_dir)
+                    return ctxt
+        return {}
+
+
+class PostgresqlDBContext(OSContextGenerator):
+    interfaces = ['pgsql-db']
+
+    def __init__(self, database=None):
+        self.database = database
+
+    def __call__(self):
+        self.database = self.database or config('database')
+        if self.database is None:
+            log('Could not generate postgresql_db context. '
+                'Missing required charm config options. '
+                '(database name)')
+            raise OSContextError
+        ctxt = {}
+
+        for rid in relation_ids(self.interfaces[0]):
+            for unit in related_units(rid):
+                ctxt = {
+                    'database_host': relation_get('host', rid=rid, unit=unit),
+                    'database': self.database,
+                    'database_user': relation_get('user', rid=rid, unit=unit),
+                    'database_password': relation_get('password', rid=rid, unit=unit),
+                    'database_type': 'postgresql',
                 }
                 if context_complete(ctxt):
                     return ctxt
         return {}
+
+
+def db_ssl(rdata, ctxt, ssl_dir):
+    if 'ssl_ca' in rdata and ssl_dir:
+        ca_path = os.path.join(ssl_dir, 'db-client.ca')
+        with open(ca_path, 'w') as fh:
+            fh.write(b64decode(rdata['ssl_ca']))
+        ctxt['database_ssl_ca'] = ca_path
+    elif 'ssl_ca' in rdata:
+        log("Charm not setup for ssl support but ssl ca found")
+        return ctxt
+    if 'ssl_cert' in rdata:
+        cert_path = os.path.join(
+            ssl_dir, 'db-client.cert')
+        if not os.path.exists(cert_path):
+            log("Waiting 1m for ssl client cert validity")
+            time.sleep(60)
+        with open(cert_path, 'w') as fh:
+            fh.write(b64decode(rdata['ssl_cert']))
+        ctxt['database_ssl_cert'] = cert_path
+        key_path = os.path.join(ssl_dir, 'db-client.key')
+        with open(key_path, 'w') as fh:
+            fh.write(b64decode(rdata['ssl_key']))
+        ctxt['database_ssl_key'] = key_path
+    return ctxt
 
 
 class IdentityServiceContext(OSContextGenerator):
@@ -126,30 +219,34 @@ class IdentityServiceContext(OSContextGenerator):
 
         for rid in relation_ids('identity-service'):
             for unit in related_units(rid):
+                rdata = relation_get(rid=rid, unit=unit)
                 ctxt = {
-                    'service_port': relation_get('service_port', rid=rid,
-                                                 unit=unit),
-                    'service_host': relation_get('service_host', rid=rid,
-                                                 unit=unit),
-                    'auth_host': relation_get('auth_host', rid=rid, unit=unit),
-                    'auth_port': relation_get('auth_port', rid=rid, unit=unit),
-                    'admin_tenant_name': relation_get('service_tenant',
-                                                      rid=rid, unit=unit),
-                    'admin_user': relation_get('service_username', rid=rid,
-                                               unit=unit),
-                    'admin_password': relation_get('service_password', rid=rid,
-                                                   unit=unit),
-                    # XXX: Hard-coded http.
-                    'service_protocol': 'http',
-                    'auth_protocol': 'http',
+                    'service_port': rdata.get('service_port'),
+                    'service_host': rdata.get('service_host'),
+                    'auth_host': rdata.get('auth_host'),
+                    'auth_port': rdata.get('auth_port'),
+                    'admin_tenant_name': rdata.get('service_tenant'),
+                    'admin_user': rdata.get('service_username'),
+                    'admin_password': rdata.get('service_password'),
+                    'service_protocol':
+                    rdata.get('service_protocol') or 'http',
+                    'auth_protocol':
+                    rdata.get('auth_protocol') or 'http',
                 }
                 if context_complete(ctxt):
+                    # NOTE(jamespage) this is required for >= icehouse
+                    # so a missing value just indicates keystone needs
+                    # upgrading
+                    ctxt['admin_tenant_id'] = rdata.get('service_tenant_id')
                     return ctxt
         return {}
 
 
 class AMQPContext(OSContextGenerator):
     interfaces = ['amqp']
+
+    def __init__(self, ssl_dir=None):
+        self.ssl_dir = ssl_dir
 
     def __call__(self):
         log('Generating template context for amqp')
@@ -161,9 +258,9 @@ class AMQPContext(OSContextGenerator):
             log('Could not generate shared_db context. '
                 'Missing required charm config options: %s.' % e)
             raise OSContextError
-
         ctxt = {}
         for rid in relation_ids('amqp'):
+            ha_vip_only = False
             for unit in related_units(rid):
                 if relation_get('clustered', rid=rid, unit=unit):
                     ctxt['clustered'] = True
@@ -178,14 +275,41 @@ class AMQPContext(OSContextGenerator):
                                                       unit=unit),
                     'rabbitmq_virtual_host': vhost,
                 })
+
+                ssl_port = relation_get('ssl_port', rid=rid, unit=unit)
+                if ssl_port:
+                    ctxt['rabbit_ssl_port'] = ssl_port
+                ssl_ca = relation_get('ssl_ca', rid=rid, unit=unit)
+                if ssl_ca:
+                    ctxt['rabbit_ssl_ca'] = ssl_ca
+
+                if relation_get('ha_queues', rid=rid, unit=unit) is not None:
+                    ctxt['rabbitmq_ha_queues'] = True
+
+                ha_vip_only = relation_get('ha-vip-only',
+                                           rid=rid, unit=unit) is not None
+
                 if context_complete(ctxt):
+                    if 'rabbit_ssl_ca' in ctxt:
+                        if not self.ssl_dir:
+                            log(("Charm not setup for ssl support "
+                                 "but ssl ca found"))
+                            break
+                        ca_path = os.path.join(
+                            self.ssl_dir, 'rabbit-client-ca.pem')
+                        with open(ca_path, 'w') as fh:
+                            fh.write(b64decode(ctxt['rabbit_ssl_ca']))
+                            ctxt['rabbit_ssl_ca'] = ca_path
                     # Sufficient information found = break out!
                     break
             # Used for active/active rabbitmq >= grizzly
-            ctxt['rabbitmq_hosts'] = []
-            for unit in related_units(rid):
-                ctxt['rabbitmq_hosts'].append(relation_get('private-address',
-                                                           rid=rid, unit=unit))
+            if ('clustered' not in ctxt or ha_vip_only) \
+                    and len(related_units(rid)) > 1:
+                rabbitmq_hosts = []
+                for unit in related_units(rid):
+                    rabbitmq_hosts.append(relation_get('private-address',
+                                                       rid=rid, unit=unit))
+                ctxt['rabbitmq_hosts'] = ','.join(rabbitmq_hosts)
         if not context_complete(ctxt):
             return {}
         else:
@@ -199,10 +323,13 @@ class CephContext(OSContextGenerator):
         '''This generates context for /etc/ceph/ceph.conf templates'''
         if not relation_ids('ceph'):
             return {}
+
         log('Generating template context for ceph')
+
         mon_hosts = []
         auth = None
         key = None
+        use_syslog = str(config('use-syslog')).lower()
         for rid in relation_ids('ceph'):
             for unit in related_units(rid):
                 mon_hosts.append(relation_get('private-address', rid=rid,
@@ -214,6 +341,7 @@ class CephContext(OSContextGenerator):
             'mon_hosts': ' '.join(mon_hosts),
             'auth': auth,
             'key': key,
+            'use_syslog': use_syslog
         }
 
         if not os.path.isdir('/etc/ceph'):
@@ -286,6 +414,7 @@ class ImageServiceContext(OSContextGenerator):
 
 
 class ApacheSSLContext(OSContextGenerator):
+
     """
     Generates a context for an apache vhost configuration that configures
     HTTPS reverse proxying for one or many endpoints.  Generated context
@@ -341,17 +470,17 @@ class ApacheSSLContext(OSContextGenerator):
             'private_address': unit_get('private-address'),
             'endpoints': []
         }
-        for ext_port in self.external_ports:
-            if peer_units() or is_clustered():
-                int_port = determine_haproxy_port(ext_port)
-            else:
-                int_port = determine_api_port(ext_port)
+        if is_clustered():
+            ctxt['private_address'] = config('vip')
+        for api_port in self.external_ports:
+            ext_port = determine_apache_port(api_port)
+            int_port = determine_api_port(api_port)
             portmap = (int(ext_port), int(int_port))
             ctxt['endpoints'].append(portmap)
         return ctxt
 
 
-class NeutronContext(object):
+class NeutronContext(OSContextGenerator):
     interfaces = []
 
     @property
@@ -412,6 +541,22 @@ class NeutronContext(object):
 
         return nvp_ctxt
 
+    def neutron_ctxt(self):
+        if https():
+            proto = 'https'
+        else:
+            proto = 'http'
+        if is_clustered():
+            host = config('vip')
+        else:
+            host = unit_get('private-address')
+        url = '%s://%s:%s' % (proto, host, '9696')
+        ctxt = {
+            'network_manager': self.network_manager,
+            'neutron_url': url,
+        }
+        return ctxt
+
     def __call__(self):
         self._ensure_packages()
 
@@ -421,40 +566,44 @@ class NeutronContext(object):
         if not self.plugin:
             return {}
 
-        ctxt = {'network_manager': self.network_manager}
+        ctxt = self.neutron_ctxt()
 
         if self.plugin == 'ovs':
             ctxt.update(self.ovs_ctxt())
         elif self.plugin == 'nvp':
             ctxt.update(self.nvp_ctxt())
 
+        alchemy_flags = config('neutron-alchemy-flags')
+        if alchemy_flags:
+            flags = config_flags_parser(alchemy_flags)
+            ctxt['neutron_alchemy_flags'] = flags
+
         self._save_flag_file()
         return ctxt
 
 
 class OSConfigFlagContext(OSContextGenerator):
-        '''
-        Responsible adding user-defined config-flags in charm config to a
-        to a template context.
-        '''
+
+        """
+        Responsible for adding user-defined config-flags in charm config to a
+        template context.
+
+        NOTE: the value of config-flags may be a comma-separated list of
+              key=value pairs and some Openstack config files support
+              comma-separated lists as values.
+        """
+
         def __call__(self):
             config_flags = config('config-flags')
-            if not config_flags or config_flags in ['None', '']:
+            if not config_flags:
                 return {}
-            config_flags = config_flags.split(',')
-            flags = {}
-            for flag in config_flags:
-                if '=' not in flag:
-                    log('Improperly formatted config-flag, expected k=v '
-                        'got %s' % flag, level=WARNING)
-                    continue
-                k, v = flag.split('=')
-                flags[k.strip()] = v
-            ctxt = {'user_config_flags': flags}
-            return ctxt
+
+            flags = config_flags_parser(config_flags)
+            return {'user_config_flags': flags}
 
 
 class SubordinateConfigContext(OSContextGenerator):
+
     """
     Responsible for inspecting relations to subordinates that
     may be exporting required config via a json blob.
@@ -495,6 +644,7 @@ class SubordinateConfigContext(OSContextGenerator):
         }
 
     """
+
     def __init__(self, service, config_file, interface):
         """
         :param service     : Service name key to query in any subordinate
@@ -538,4 +688,13 @@ class SubordinateConfigContext(OSContextGenerator):
         if not ctxt:
             ctxt['sections'] = {}
 
+        return ctxt
+
+
+class SyslogContext(OSContextGenerator):
+
+    def __call__(self):
+        ctxt = {
+            'use_syslog': config('use-syslog')
+        }
         return ctxt

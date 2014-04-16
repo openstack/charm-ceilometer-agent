@@ -13,16 +13,19 @@ from charmhelpers.core.hookenv import (
     relation_set
 )
 from charmhelpers.core.host import (
-    restart_on_change
+    restart_on_change,
+    lsb_release,
 )
 from charmhelpers.contrib.openstack.utils import (
-    configure_installation_source
+    configure_installation_source,
+    openstack_upgrade_available
 )
 from ceilometer_utils import (
     restart_map,
     register_configs,
     CEILOMETER_AGENT_PACKAGES,
-    NOVA_SETTINGS
+    NOVA_SETTINGS,
+    do_openstack_upgrade
 )
 
 hooks = Hooks()
@@ -31,7 +34,11 @@ CONFIGS = register_configs()
 
 @hooks.hook()
 def install():
-    configure_installation_source(config('openstack-origin'))
+    origin = config('openstack-origin')
+    if (lsb_release()['DISTRIB_CODENAME'] == 'precise'
+            and origin == 'distro'):
+        origin = 'cloud:precise-grizzly'
+    configure_installation_source(origin)
     apt_update(fatal=True)
     apt_install(
         filter_installed_packages(CEILOMETER_AGENT_PACKAGES),
@@ -49,6 +56,13 @@ def nova_ceilometer_joined():
 def ceilometer_changed():
     CONFIGS.write_all()
 
+
+@hooks.hook('config-changed')
+@restart_on_change(restart_map(), stopstart=True)
+def config_changed():
+    if openstack_upgrade_available('ceilometer-common'):
+        do_openstack_upgrade(CONFIGS)
+    CONFIGS.write_all()
 
 if __name__ == '__main__':
     try:

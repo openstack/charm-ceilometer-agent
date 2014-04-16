@@ -21,6 +21,8 @@ TO_PATCH = [
     'filter_installed_packages',
     'CONFIGS',
     'relation_set',
+    'openstack_upgrade_available',
+    'do_openstack_upgrade'
 ]
 
 
@@ -53,3 +55,19 @@ class CeilometerHooksTest(CharmTestCase):
         hooks.hooks.execute(['hooks/nova-ceilometer-relation-joined'])
         self.relation_set.assert_called_with(
             subordinate_configuration=json.dumps(ceilometer_utils.NOVA_SETTINGS))
+
+    def test_config_changed_no_upgrade(self):
+        self.openstack_upgrade_available.return_value = False
+        hooks.hooks.execute(['hooks/config-changed'])
+        self.openstack_upgrade_available.\
+            assert_called_with('ceilometer-common')
+        self.assertFalse(self.do_openstack_upgrade.called)
+        self.assertTrue(self.CONFIGS.write_all.called)
+
+    def test_config_changed_upgrade(self):
+        self.openstack_upgrade_available.return_value = True
+        hooks.hooks.execute(['hooks/config-changed'])
+        self.openstack_upgrade_available.\
+            assert_called_with('ceilometer-common')
+        self.assertTrue(self.do_openstack_upgrade.called)
+        self.assertTrue(self.CONFIGS.write_all.called)

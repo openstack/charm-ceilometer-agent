@@ -65,6 +65,10 @@ SWIFT_CODENAMES = OrderedDict([
     ('1.10.0', 'havana'),
     ('1.9.1', 'havana'),
     ('1.9.0', 'havana'),
+    ('1.13.1', 'icehouse'),
+    ('1.13.0', 'icehouse'),
+    ('1.12.0', 'icehouse'),
+    ('1.11.0', 'icehouse'),
 ])
 
 DEFAULT_LOOPBACK_SIZE = '5G'
@@ -415,26 +419,30 @@ def get_host_ip(hostname):
     return ns_query(hostname)
 
 
-def get_hostname(address):
+def get_hostname(address, fqdn=True):
     """
     Resolves hostname for given IP, or returns the input
     if it is already a hostname.
     """
-    if not is_ip(address):
-        return address
+    if is_ip(address):
+        try:
+            import dns.reversename
+        except ImportError:
+            apt_install('python-dnspython')
+            import dns.reversename
 
-    try:
-        import dns.reversename
-    except ImportError:
-        apt_install('python-dnspython')
-        import dns.reversename
+        rev = dns.reversename.from_address(address)
+        result = ns_query(rev)
+        if not result:
+            return None
+    else:
+        result = address
 
-    rev = dns.reversename.from_address(address)
-    result = ns_query(rev)
-    if not result:
-        return None
-
-    # strip trailing .
-    if result.endswith('.'):
-        return result[:-1]
-    return result
+    if fqdn:
+        # strip trailing .
+        if result.endswith('.'):
+            return result[:-1]
+        else:
+            return result
+    else:
+        return result.split('.')[0]

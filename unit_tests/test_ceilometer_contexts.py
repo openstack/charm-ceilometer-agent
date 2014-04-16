@@ -1,7 +1,4 @@
-from mock import patch
-
 import ceilometer_contexts as contexts
-
 from test_utils import CharmTestCase
 
 TO_PATCH = [
@@ -30,6 +27,8 @@ class CeilometerContextsTest(CharmTestCase):
             'rabbitmq_user': 'bar',
             'rabbitmq_password': 'baz',
             'rabbitmq_virtual_host': 'openstack',
+            'rabbit_ssl_ca': None,
+            'rabbit_ssl_port': None,
             'auth_protocol': 'http',
             'auth_host': 'keystone',
             'auth_port': '80',
