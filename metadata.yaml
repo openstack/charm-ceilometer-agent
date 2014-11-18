@@ -15,6 +15,9 @@ categories:
   - miscellaneous
   - openstack
 provides:
+  nrpe-external-master:
+    interface: nrpe-external-master
+    scope: container
   nova-ceilometer:
     interface: nova-ceilometer
     scope: container
