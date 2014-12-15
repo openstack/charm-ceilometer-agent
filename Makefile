@@ -13,5 +13,5 @@ bin/charm_helpers_sync.py:
 sync: bin/charm_helpers_sync.py
 	@$(PYTHON) bin/charm_helpers_sync.py -c charm-helpers.yaml
 
-test:
+unit_test:
 	@$(PYTHON) /usr/bin/nosetests --nologcapture --with-coverage  unit_tests
