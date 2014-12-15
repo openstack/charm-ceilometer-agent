@@ -7,6 +7,8 @@ import glanceclient.v1.client as glance_client
 import keystoneclient.v2_0 as keystone_client
 import novaclient.v1_1.client as nova_client
 
+import six
+
 from charmhelpers.contrib.amulet.utils import (
     AmuletUtils
 )
@@ -60,7 +62,7 @@ class OpenStackAmuletUtils(AmuletUtils):
            expected service catalog endpoints.
            """
         self.log.debug('actual: {}'.format(repr(actual)))
-        for k, v in expected.iteritems():
+        for k, v in six.iteritems(expected):
             if k in actual:
                 ret = self._validate_dict_data(expected[k][0], actual[k][0])
                 if ret:
@@ -187,15 +189,16 @@ class OpenStackAmuletUtils(AmuletUtils):
 
         f = opener.open("http://download.cirros-cloud.net/version/released")
         version = f.read().strip()
-        cirros_img = "tests/cirros-{}-x86_64-disk.img".format(version)
+        cirros_img = "cirros-{}-x86_64-disk.img".format(version)
+        local_path = os.path.join('tests', cirros_img)
 
-        if not os.path.exists(cirros_img):
+        if not os.path.exists(local_path):
             cirros_url = "http://{}/{}/{}".format("download.cirros-cloud.net",
                                                   version, cirros_img)
-            opener.retrieve(cirros_url, cirros_img)
+            opener.retrieve(cirros_url, local_path)
         f.close()
 
-        with open(cirros_img) as f:
+        with open(local_path) as f:
             image = glance.images.create(name=image_name, is_public=True,
                                          disk_format='qcow2',
                                          container_format='bare', data=f)

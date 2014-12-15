@@ -1,11 +1,11 @@
-
 import os
 import re
-
 from subprocess import (
     check_call,
     check_output,
 )
+
+import six
 
 
 ##################################################
@@ -37,7 +37,7 @@ def create_loopback(file_path):
     '''
     file_path = os.path.abspath(file_path)
     check_call(['losetup', '--find', file_path])
-    for d, f in loopback_devices().iteritems():
+    for d, f in six.iteritems(loopback_devices()):
         if f == file_path:
             return d
 
@@ -51,7 +51,7 @@ def ensure_loopback_device(path, size):
 
     :returns: str: Full path to the ensured loopback device (eg, /dev/loop0)
     '''
-    for d, f in loopback_devices().iteritems():
+    for d, f in six.iteritems(loopback_devices()):
         if f == path:
             return d
 
