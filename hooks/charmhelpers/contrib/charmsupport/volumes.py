@@ -1,8 +1,25 @@
+# Copyright 2014-2015 Canonical Limited.
+#
+# This file is part of charm-helpers.
+#
+# charm-helpers is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License version 3 as
+# published by the Free Software Foundation.
+#
+# charm-helpers is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with charm-helpers.  If not, see <http://www.gnu.org/licenses/>.
+
 '''
 Functions for managing volumes in juju units. One volume is supported per unit.
 Subordinates may have their own storage, provided it is on its own partition.
 
-Configuration stanzas:
+Configuration stanzas::
+
   volume-ephemeral:
     type: boolean
     default: true
@@ -20,7 +37,8 @@ Configuration stanzas:
       is 'true' and no volume-map value is set. Use 'juju set' to set a
       value and 'juju resolved' to complete configuration.
 
-Usage:
+Usage::
+
     from charmsupport.volumes import configure_volume, VolumeConfigurationError
     from charmsupport.hookenv import log, ERROR
     def post_mount_hook():
@@ -34,6 +52,7 @@ Usage:
                              after_change=post_mount_hook)
         except VolumeConfigurationError:
             log('Storage could not be configured', ERROR)
+
 '''
 
 # XXX: Known limitations
