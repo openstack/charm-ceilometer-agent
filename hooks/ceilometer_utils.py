@@ -94,6 +94,14 @@ def restart_map():
     return _map
 
 
+def services():
+    ''' Returns a list of services associate with this charm '''
+    _services = []
+    for v in restart_map().values():
+        _services = _services + v
+    return list(set(_services))
+
+
 def do_openstack_upgrade(configs):
     """
     Perform an upgrade.  Takes care of upgrading packages, rewriting

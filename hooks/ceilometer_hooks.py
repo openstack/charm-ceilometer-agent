@@ -10,7 +10,7 @@ from charmhelpers.core.hookenv import (
     config,
     Hooks, UnregisteredHookError,
     log,
-    relation_set
+    relation_set,
 )
 from charmhelpers.core.host import (
     restart_on_change,
@@ -22,11 +22,13 @@ from charmhelpers.contrib.openstack.utils import (
 )
 from ceilometer_utils import (
     restart_map,
+    services,
     register_configs,
     CEILOMETER_AGENT_PACKAGES,
     NOVA_SETTINGS,
     do_openstack_upgrade
 )
+from charmhelpers.contrib.charmsupport import nrpe
 
 hooks = Hooks()
 CONFIGS = register_configs()
@@ -55,6 +57,7 @@ def nova_ceilometer_joined():
 @restart_on_change(restart_map())
 def ceilometer_changed():
     CONFIGS.write_all()
+    update_nrpe_config()
 
 
 @hooks.hook('config-changed')
@@ -62,7 +65,21 @@ def ceilometer_changed():
 def config_changed():
     if openstack_upgrade_available('ceilometer-common'):
         do_openstack_upgrade(CONFIGS)
+    update_nrpe_config()
     CONFIGS.write_all()
+
+
+@hooks.hook('nrpe-external-master-relation-joined',
+            'nrpe-external-master-relation-changed')
+def update_nrpe_config():
+    # python-dbus is used by check_upstart_job
+    apt_install('python-dbus')
+    hostname = nrpe.get_nagios_hostname()
+    current_unit = nrpe.get_nagios_unit_name()
+    nrpe_setup = nrpe.NRPE(hostname=hostname)
+    nrpe.add_init_service_checks(nrpe_setup, services(), current_unit)
+    nrpe_setup.write()
+
 
 if __name__ == '__main__':
     try:
