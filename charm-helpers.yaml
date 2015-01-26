@@ -8,3 +8,4 @@ include:
     - contrib.storage.linux
     - contrib.network.ip
     - contrib.python.packages
+    - contrib.charmsupport
