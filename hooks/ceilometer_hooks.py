@@ -10,6 +10,7 @@ from charmhelpers.core.hookenv import (
     config,
     Hooks, UnregisteredHookError,
     log,
+    is_relation_made,
     relation_set,
 )
 from charmhelpers.core.host import (
@@ -57,7 +58,8 @@ def nova_ceilometer_joined():
 @restart_on_change(restart_map())
 def ceilometer_changed():
     CONFIGS.write_all()
-    update_nrpe_config()
+    if is_relation_made('nrpe-external-master'):
+        update_nrpe_config()
 
 
 @hooks.hook('config-changed')
@@ -65,7 +67,8 @@ def ceilometer_changed():
 def config_changed():
     if openstack_upgrade_available('ceilometer-common'):
         do_openstack_upgrade(CONFIGS)
-    update_nrpe_config()
+    if is_relation_made('nrpe-external-master'):
+        update_nrpe_config()
     CONFIGS.write_all()
 
 

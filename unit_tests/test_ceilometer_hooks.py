@@ -24,6 +24,7 @@ TO_PATCH = [
     'openstack_upgrade_available',
     'do_openstack_upgrade',
     'update_nrpe_config',
+    'is_relation_made',
 ]
 
 
@@ -57,10 +58,19 @@ class CeilometerHooksTest(CharmTestCase):
         self.assertTrue(self.update_nrpe_config.called)
 
     @patch('charmhelpers.core.hookenv.config')
+    def test_ceilometer_changed_no_nrpe(self, mock_config):
+        self.is_relation_made.return_value = False
+
+        hooks.hooks.execute(['hooks/ceilometer-service-relation-changed'])
+        self.assertTrue(self.CONFIGS.write_all.called)
+        self.assertFalse(self.update_nrpe_config.called)
+
+    @patch('charmhelpers.core.hookenv.config')
     def test_nova_ceilometer_joined(self, mock_config):
         hooks.hooks.execute(['hooks/nova-ceilometer-relation-joined'])
         self.relation_set.assert_called_with(
-            subordinate_configuration=json.dumps(ceilometer_utils.NOVA_SETTINGS))
+            subordinate_configuration=json.dumps(
+                ceilometer_utils.NOVA_SETTINGS))
 
     @patch('charmhelpers.core.hookenv.config')
     def test_config_changed_no_upgrade(self, mock_config):
@@ -81,3 +91,15 @@ class CeilometerHooksTest(CharmTestCase):
         self.assertTrue(self.do_openstack_upgrade.called)
         self.assertTrue(self.CONFIGS.write_all.called)
         self.assertTrue(self.update_nrpe_config.called)
+
+    @patch('charmhelpers.core.hookenv.config')
+    def test_config_changed_no_nrpe(self, mock_config):
+        self.openstack_upgrade_available.return_value = False
+        self.is_relation_made.return_value = False
+
+        hooks.hooks.execute(['hooks/config-changed'])
+        self.openstack_upgrade_available.\
+            assert_called_with('ceilometer-common')
+        self.assertFalse(self.do_openstack_upgrade.called)
+        self.assertTrue(self.CONFIGS.write_all.called)
+        self.assertFalse(self.update_nrpe_config.called)
