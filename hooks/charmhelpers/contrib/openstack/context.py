@@ -16,6 +16,7 @@
 
 import json
 import os
+import re
 import time
 from base64 import b64decode
 from subprocess import check_call
@@ -46,8 +47,11 @@ from charmhelpers.core.hookenv import (
 )
 
 from charmhelpers.core.sysctl import create as sysctl_create
+from charmhelpers.core.strutils import bool_from_string
 
 from charmhelpers.core.host import (
+    list_nics,
+    get_nic_hwaddr,
     mkdir,
     write_file,
 )
@@ -64,16 +68,22 @@ from charmhelpers.contrib.hahelpers.apache import (
 )
 from charmhelpers.contrib.openstack.neutron import (
     neutron_plugin_attribute,
+    parse_data_port_mappings,
+)
+from charmhelpers.contrib.openstack.ip import (
+    resolve_address,
+    INTERNAL,
 )
 from charmhelpers.contrib.network.ip import (
     get_address_in_network,
+    get_ipv4_addr,
     get_ipv6_addr,
     get_netmask_for_address,
     format_ipv6_addr,
     is_address_in_network,
+    is_bridge_member,
 )
 from charmhelpers.contrib.openstack.utils import get_host_ip
-
 CA_CERT_PATH = '/usr/local/share/ca-certificates/keystone_juju_ca_cert.crt'
 ADDRESS_TYPES = ['admin', 'internal', 'public']
 
@@ -310,14 +320,15 @@ def db_ssl(rdata, ctxt, ssl_dir):
 
 
 class IdentityServiceContext(OSContextGenerator):
-    interfaces = ['identity-service']
 
-    def __init__(self, service=None, service_user=None):
+    def __init__(self, service=None, service_user=None, rel_name='identity-service'):
         self.service = service
         self.service_user = service_user
+        self.rel_name = rel_name
+        self.interfaces = [self.rel_name]
 
     def __call__(self):
-        log('Generating template context for identity-service', level=DEBUG)
+        log('Generating template context for ' + self.rel_name, level=DEBUG)
         ctxt = {}
 
         if self.service and self.service_user:
@@ -331,7 +342,7 @@ class IdentityServiceContext(OSContextGenerator):
 
             ctxt['signing_dir'] = cachedir
 
-        for rid in relation_ids('identity-service'):
+        for rid in relation_ids(self.rel_name):
             for unit in related_units(rid):
                 rdata = relation_get(rid=rid, unit=unit)
                 serv_host = rdata.get('service_host')
@@ -727,7 +738,14 @@ class ApacheSSLContext(OSContextGenerator):
                 'endpoints': [],
                 'ext_ports': []}
 
-        for cn in self.canonical_names():
+        cns = self.canonical_names()
+        if cns:
+            for cn in cns:
+                self.configure_cert(cn)
+        else:
+            # Expect cert/key provided in config (currently assumed that ca
+            # uses ip for cn)
+            cn = resolve_address(endpoint_type=INTERNAL)
             self.configure_cert(cn)
 
         addresses = self.get_network_addresses()
@@ -789,6 +807,19 @@ class NeutronContext(OSContextGenerator):
                     'config': config}
 
         return ovs_ctxt
+
+    def nuage_ctxt(self):
+        driver = neutron_plugin_attribute(self.plugin, 'driver',
+                                          self.network_manager)
+        config = neutron_plugin_attribute(self.plugin, 'config',
+                                          self.network_manager)
+        nuage_ctxt = {'core_plugin': driver,
+                      'neutron_plugin': 'vsp',
+                      'neutron_security_groups': self.neutron_security_groups,
+                      'local_ip': unit_private_ip(),
+                      'config': config}
+
+        return nuage_ctxt
 
     def nvp_ctxt(self):
         driver = neutron_plugin_attribute(self.plugin, 'driver',
@@ -873,6 +904,8 @@ class NeutronContext(OSContextGenerator):
             ctxt.update(self.n1kv_ctxt())
         elif self.plugin == 'Calico':
             ctxt.update(self.calico_ctxt())
+        elif self.plugin == 'vsp':
+            ctxt.update(self.nuage_ctxt())
 
         alchemy_flags = config('neutron-alchemy-flags')
         if alchemy_flags:
@@ -881,6 +914,48 @@ class NeutronContext(OSContextGenerator):
 
         self._save_flag_file()
         return ctxt
+
+
+class NeutronPortContext(OSContextGenerator):
+    NIC_PREFIXES = ['eth', 'bond']
+
+    def resolve_ports(self, ports):
+        """Resolve NICs not yet bound to bridge(s)
+
+        If hwaddress provided then returns resolved hwaddress otherwise NIC.
+        """
+        if not ports:
+            return None
+
+        hwaddr_to_nic = {}
+        hwaddr_to_ip = {}
+        for nic in list_nics(self.NIC_PREFIXES):
+            hwaddr = get_nic_hwaddr(nic)
+            hwaddr_to_nic[hwaddr] = nic
+            addresses = get_ipv4_addr(nic, fatal=False)
+            addresses += get_ipv6_addr(iface=nic, fatal=False)
+            hwaddr_to_ip[hwaddr] = addresses
+
+        resolved = []
+        mac_regex = re.compile(r'([0-9A-F]{2}[:-]){5}([0-9A-F]{2})', re.I)
+        for entry in ports:
+            if re.match(mac_regex, entry):
+                # NIC is in known NICs and does NOT hace an IP address
+                if entry in hwaddr_to_nic and not hwaddr_to_ip[entry]:
+                    # If the nic is part of a bridge then don't use it
+                    if is_bridge_member(hwaddr_to_nic[entry]):
+                        continue
+
+                    # Entry is a MAC address for a valid interface that doesn't
+                    # have an IP address assigned yet.
+                    resolved.append(hwaddr_to_nic[entry])
+            else:
+                # If the passed entry is not a MAC address, assume it's a valid
+                # interface, and that the user put it there on purpose (we can
+                # trust it to be the real external network).
+                resolved.append(entry)
+
+        return resolved
 
 
 class OSConfigFlagContext(OSContextGenerator):
@@ -1104,3 +1179,145 @@ class SysctlContext(OSContextGenerator):
             sysctl_create(sysctl_dict,
                           '/etc/sysctl.d/50-{0}.conf'.format(charm_name()))
         return {'sysctl': sysctl_dict}
+
+
+class NeutronAPIContext(OSContextGenerator):
+    '''
+    Inspects current neutron-plugin-api relation for neutron settings. Return
+    defaults if it is not present.
+    '''
+    interfaces = ['neutron-plugin-api']
+
+    def __call__(self):
+        self.neutron_defaults = {
+            'l2_population': {
+                'rel_key': 'l2-population',
+                'default': False,
+            },
+            'overlay_network_type': {
+                'rel_key': 'overlay-network-type',
+                'default': 'gre',
+            },
+            'neutron_security_groups': {
+                'rel_key': 'neutron-security-groups',
+                'default': False,
+            },
+            'network_device_mtu': {
+                'rel_key': 'network-device-mtu',
+                'default': None,
+            },
+            'enable_dvr': {
+                'rel_key': 'enable-dvr',
+                'default': False,
+            },
+            'enable_l3ha': {
+                'rel_key': 'enable-l3ha',
+                'default': False,
+            },
+        }
+        ctxt = self.get_neutron_options({})
+        for rid in relation_ids('neutron-plugin-api'):
+            for unit in related_units(rid):
+                rdata = relation_get(rid=rid, unit=unit)
+                if 'l2-population' in rdata:
+                    ctxt.update(self.get_neutron_options(rdata))
+
+        return ctxt
+
+    def get_neutron_options(self, rdata):
+        settings = {}
+        for nkey in self.neutron_defaults.keys():
+            defv = self.neutron_defaults[nkey]['default']
+            rkey = self.neutron_defaults[nkey]['rel_key']
+            if rkey in rdata.keys():
+                if type(defv) is bool:
+                    settings[nkey] = bool_from_string(rdata[rkey])
+                else:
+                    settings[nkey] = rdata[rkey]
+            else:
+                settings[nkey] = defv
+        return settings
+
+
+class ExternalPortContext(NeutronPortContext):
+
+    def __call__(self):
+        ctxt = {}
+        ports = config('ext-port')
+        if ports:
+            ports = [p.strip() for p in ports.split()]
+            ports = self.resolve_ports(ports)
+            if ports:
+                ctxt = {"ext_port": ports[0]}
+                napi_settings = NeutronAPIContext()()
+                mtu = napi_settings.get('network_device_mtu')
+                if mtu:
+                    ctxt['ext_port_mtu'] = mtu
+
+        return ctxt
+
+
+class DataPortContext(NeutronPortContext):
+
+    def __call__(self):
+        ports = config('data-port')
+        if ports:
+            portmap = parse_data_port_mappings(ports)
+            ports = portmap.values()
+            resolved = self.resolve_ports(ports)
+            normalized = {get_nic_hwaddr(port): port for port in resolved
+                          if port not in ports}
+            normalized.update({port: port for port in resolved
+                               if port in ports})
+            if resolved:
+                return {bridge: normalized[port] for bridge, port in
+                        six.iteritems(portmap) if port in normalized.keys()}
+
+        return None
+
+
+class PhyNICMTUContext(DataPortContext):
+
+    def __call__(self):
+        ctxt = {}
+        mappings = super(PhyNICMTUContext, self).__call__()
+        if mappings and mappings.values():
+            ports = mappings.values()
+            napi_settings = NeutronAPIContext()()
+            mtu = napi_settings.get('network_device_mtu')
+            if mtu:
+                ctxt["devs"] = '\\n'.join(ports)
+                ctxt['mtu'] = mtu
+
+        return ctxt
+
+
+class NetworkServiceContext(OSContextGenerator):
+
+    def __init__(self, rel_name='quantum-network-service'):
+        self.rel_name = rel_name
+        self.interfaces = [rel_name]
+
+    def __call__(self):
+        for rid in relation_ids(self.rel_name):
+            for unit in related_units(rid):
+                rdata = relation_get(rid=rid, unit=unit)
+                ctxt = {
+                    'keystone_host': rdata.get('keystone_host'),
+                    'service_port': rdata.get('service_port'),
+                    'auth_port': rdata.get('auth_port'),
+                    'service_tenant': rdata.get('service_tenant'),
+                    'service_username': rdata.get('service_username'),
+                    'service_password': rdata.get('service_password'),
+                    'quantum_host': rdata.get('quantum_host'),
+                    'quantum_port': rdata.get('quantum_port'),
+                    'quantum_url': rdata.get('quantum_url'),
+                    'region': rdata.get('region'),
+                    'service_protocol':
+                    rdata.get('service_protocol') or 'http',
+                    'auth_protocol':
+                    rdata.get('auth_protocol') or 'http',
+                }
+                if context_complete(ctxt):
+                    return ctxt
+        return {}
