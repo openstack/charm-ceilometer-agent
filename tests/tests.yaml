@@ -1,0 +1,14 @@
+bootstrap: true
+reset: true
+virtualenv: true
+makefile:
+    - lint
+    - test
+sources:
+    - ppa:juju/stable
+packages:
+    - amulet
+    - python-amulet
+    - python-distro-info
+    - python-keystoneclient
+    - python-ceilometerclient

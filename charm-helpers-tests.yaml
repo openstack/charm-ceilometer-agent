@@ -1,0 +1,6 @@
+#branch: lp:charm-helpers
+branch: lp:~1chb1n/charm-helpers/amulet-ceph-cinder-updates/
+destination: tests/charmhelpers
+include:
+    - contrib.amulet
+    - contrib.openstack.amulet
