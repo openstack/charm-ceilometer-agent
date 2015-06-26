@@ -1,0 +1,11 @@
+#!/usr/bin/python
+
+"""Amulet tests on a basic ceilometer deployment on precise-icehouse."""
+
+from basic_deployment import CeiloAgentBasicDeployment
+
+if __name__ == '__main__':
+    deployment = CeiloAgentBasicDeployment(series='precise',
+                                           openstack='cloud:precise-icehouse',
+                                           source='cloud:precise-updates/icehouse')
+    deployment.run_tests()

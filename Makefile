@@ -2,8 +2,17 @@
 PYTHON := /usr/bin/env python
 
 lint:
-	@flake8 --exclude hooks/charmhelpers hooks
+	@flake8 --exclude hooks/charmhelpers,tests/charmhelpers \
+        hooks tests unit_tests
 	@charm proof
+
+test:
+	@# Bundletester expects unit tests here.
+	@$(PYTHON) /usr/bin/nosetests --nologcapture --with-coverage  unit_tests
+
+functional_test:
+	@echo Starting Amulet tests...
+	@juju test -v -p AMULET_HTTP_PROXY,AMULET_OS_VIP --timeout 2700
 
 bin/charm_helpers_sync.py:
 	@mkdir -p bin
@@ -11,7 +20,9 @@ bin/charm_helpers_sync.py:
 	> bin/charm_helpers_sync.py
 
 sync: bin/charm_helpers_sync.py
-	@$(PYTHON) bin/charm_helpers_sync.py -c charm-helpers.yaml
+#	@$(PYTHON) bin/charm_helpers_sync.py -c charm-helpers-hooks.yaml
+	@$(PYTHON) bin/charm_helpers_sync.py -c charm-helpers-tests.yaml
 
-unit_test:
-	@$(PYTHON) /usr/bin/nosetests --nologcapture --with-coverage  unit_tests
+publish: lint
+	@bzr push lp:charms/ceilometer-agent
+	@bzr push lp:charms/trusty/ceilometer-agent
