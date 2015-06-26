@@ -23,6 +23,6 @@ sync: bin/charm_helpers_sync.py
 	@$(PYTHON) bin/charm_helpers_sync.py -c charm-helpers-hooks.yaml
 	@$(PYTHON) bin/charm_helpers_sync.py -c charm-helpers-tests.yaml
 
-publish: lint
+publish: lint test
 	@bzr push lp:charms/ceilometer-agent
 	@bzr push lp:charms/trusty/ceilometer-agent
