@@ -66,7 +66,7 @@ def register_configs():
     # just default to earliest supported release. configs dont get touched
     # till post-install, anyway.
     release = get_os_codename_package('ceilometer-common', fatal=False) \
-        or 'grizzly'
+        or 'icehouse'
     configs = templating.OSConfigRenderer(templates_dir=TEMPLATES,
                                           openstack_release=release)
 

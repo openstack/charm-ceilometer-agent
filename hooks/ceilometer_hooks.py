@@ -38,9 +38,6 @@ CONFIGS = register_configs()
 @hooks.hook()
 def install():
     origin = config('openstack-origin')
-    if (lsb_release()['DISTRIB_CODENAME'] == 'precise'
-            and origin == 'distro'):
-        origin = 'cloud:precise-grizzly'
     configure_installation_source(origin)
     apt_update(fatal=True)
     apt_install(
