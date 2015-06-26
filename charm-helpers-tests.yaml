@@ -1,5 +1,4 @@
-#branch: lp:charm-helpers
-branch: lp:~1chb1n/charm-helpers/amulet-ceph-cinder-updates/
+branch: lp:charm-helpers
 destination: tests/charmhelpers
 include:
     - contrib.amulet
