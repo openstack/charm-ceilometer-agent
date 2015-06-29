@@ -446,6 +446,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
 
     def test_301_nova_config(self):
         """Verify data in the nova compute nova config file"""
+        u.log.debug('Checking nova compute config file...')
         unit = self.nova_sentry
         conf = '/etc/nova/nova.conf'
         mysql_rel = self.mysql_sentry.relation('shared-db',
@@ -488,6 +489,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
     def test_302_nova_ceilometer_config(self):
         """Verify data in the ceilometer config file on the
         nova-compute (ceilometer-agent) unit."""
+        u.log.debug('Checking nova ceilometer config file...')
         unit = self.nova_sentry
         conf = '/etc/ceilometer/ceilometer.conf'
         expected = {
