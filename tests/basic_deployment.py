@@ -465,7 +465,6 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
                 'api_paste_config': '/etc/nova/api-paste.ini',
                 'enabled_apis': 'ec2,osapi_compute,metadata',
                 'auth_strategy': 'keystone',
-                'compute_driver': 'libvirt.LibvirtDriver',
                 'instance_usage_audit': 'True',
                 'instance_usage_audit_period': 'hour',
                 'notify_on_state_change': 'vm_and_task_state',
