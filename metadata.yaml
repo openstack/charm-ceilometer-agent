@@ -12,8 +12,9 @@ description: |
  This charm should be used in conjunction with the ceilometer and nova charm to collect
  Openstack measures.
 tags:
-  - miscellaneous
   - openstack
+  - telemetry
+  - misc
 provides:
   nrpe-external-master:
     interface: nrpe-external-master
