@@ -1,6 +1,6 @@
 #!/usr/bin/python
 
-"""Amulet tests on a basic ceilometer deployment on wily-liberty."""
+"""Amulet tests on a basic ceilometer-agent deployment on wily-liberty."""
 
 from basic_deployment import CeiloAgentBasicDeployment
 
