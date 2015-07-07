@@ -1,4 +1,4 @@
-from mock import patch, call, MagicMock
+from mock import call, MagicMock
 
 import ceilometer_utils as utils
 
