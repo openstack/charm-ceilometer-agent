@@ -1,0 +1,9 @@
+#!/usr/bin/python
+
+"""Amulet tests on a basic ceilometer-agent deployment on wily-liberty."""
+
+from basic_deployment import CeiloAgentBasicDeployment
+
+if __name__ == '__main__':
+    deployment = CeiloAgentBasicDeployment(series='wily')
+    deployment.run_tests()

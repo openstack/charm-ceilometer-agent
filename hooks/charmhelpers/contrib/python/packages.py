@@ -17,8 +17,11 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with charm-helpers.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+import subprocess
+
 from charmhelpers.fetch import apt_install, apt_update
-from charmhelpers.core.hookenv import log
+from charmhelpers.core.hookenv import charm_dir, log
 
 try:
     from pip import main as pip_execute
@@ -33,6 +36,8 @@ __author__ = "Jorge Niedbalski <jorge.niedbalski@canonical.com>"
 def parse_options(given, available):
     """Given a set of options, check if available"""
     for key, value in sorted(given.items()):
+        if not value:
+            continue
         if key in available:
             yield "--{0}={1}".format(key, value)
 
@@ -51,11 +56,15 @@ def pip_install_requirements(requirements, **options):
     pip_execute(command)
 
 
-def pip_install(package, fatal=False, upgrade=False, **options):
+def pip_install(package, fatal=False, upgrade=False, venv=None, **options):
     """Install a python package"""
-    command = ["install"]
+    if venv:
+        venv_python = os.path.join(venv, 'bin/pip')
+        command = [venv_python, "install"]
+    else:
+        command = ["install"]
 
-    available_options = ('proxy', 'src', 'log', "index-url", )
+    available_options = ('proxy', 'src', 'log', 'index-url', )
     for option in parse_options(options, available_options):
         command.append(option)
 
@@ -69,7 +78,10 @@ def pip_install(package, fatal=False, upgrade=False, **options):
 
     log("Installing {} package with options: {}".format(package,
                                                         command))
-    pip_execute(command)
+    if venv:
+        subprocess.check_call(command)
+    else:
+        pip_execute(command)
 
 
 def pip_uninstall(package, **options):
@@ -94,3 +106,16 @@ def pip_list():
     """Returns the list of current python installed packages
     """
     return pip_execute(["list"])
+
+
+def pip_create_virtualenv(path=None):
+    """Create an isolated Python environment."""
+    apt_install('python-virtualenv')
+
+    if path:
+        venv_path = path
+    else:
+        venv_path = os.path.join(charm_dir(), 'venv')
+
+    if not os.path.exists(venv_path):
+        subprocess.check_call(['virtualenv', venv_path])
