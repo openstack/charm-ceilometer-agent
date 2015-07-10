@@ -7,13 +7,23 @@ options:
       distro (default), ppa:somecustom/ppa, a deb url sources entry,
       or a supported Cloud Archive release pocket.
 
-      Supported Cloud Archive sources include: cloud:precise-folsom,
-      cloud:precise-folsom/updates, cloud:precise-folsom/staging,
-      cloud:precise-folsom/proposed.
+      Supported Cloud Archive sources include:
 
-      Note that updating this setting to a source that is known to
-      provide a later version of OpenStack will trigger a software
-      upgrade.
+      cloud:<series>-<openstack-release>
+      cloud:<series>-<openstack-release>/updates
+      cloud:<series>-<openstack-release>/staging
+      cloud:<series>-<openstack-release>/proposed
+
+      For series=Precise we support cloud archives for openstack-release:
+         * icehouse
+
+      For series=Trusty we support cloud archives for openstack-release:
+         * juno
+         * kilo
+         * ...
+
+      NOTE: updating this setting to a source that is known to provide
+      a later version of OpenStack will trigger a software upgrade.
   nagios_context:
     default: "juju"
     type: string
