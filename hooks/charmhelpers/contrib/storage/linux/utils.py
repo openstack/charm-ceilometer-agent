@@ -67,4 +67,4 @@ def is_device_mounted(device):
     out = check_output(['mount']).decode('UTF-8')
     if is_partition:
         return bool(re.search(device + r"\b", out))
-    return bool(re.search(device + r"[0-9]+\b", out))
+    return bool(re.search(device + r"[0-9]*\b", out))

@@ -122,21 +122,24 @@ def config_flags_parser(config_flags):
          of specifying multiple key value pairs within the same string. For
          example, a string in the format of 'key1=value1, key2=value2' will
          return a dict of:
-         {'key1': 'value1',
-          'key2': 'value2'}.
+
+             {'key1': 'value1',
+              'key2': 'value2'}.
 
       2. A string in the above format, but supporting a comma-delimited list
          of values for the same key. For example, a string in the format of
          'key1=value1, key2=value3,value4,value5' will return a dict of:
-         {'key1', 'value1',
-          'key2', 'value2,value3,value4'}
+
+             {'key1', 'value1',
+              'key2', 'value2,value3,value4'}
 
       3. A string containing a colon character (:) prior to an equal
          character (=) will be treated as yaml and parsed as such. This can be
          used to specify more complex key value pairs. For example,
          a string in the format of 'key1: subkey1=value1, subkey2=value2' will
          return a dict of:
-         {'key1', 'subkey1=value1, subkey2=value2'}
+
+             {'key1', 'subkey1=value1, subkey2=value2'}
 
     The provided config_flags string may be a list of comma-separated values
     which themselves may be comma-separated list of values.
@@ -891,8 +894,6 @@ class NeutronContext(OSContextGenerator):
         return ctxt
 
     def __call__(self):
-        self._ensure_packages()
-
         if self.network_manager not in ['quantum', 'neutron']:
             return {}
 
@@ -1052,11 +1053,17 @@ class SubordinateConfigContext(OSContextGenerator):
         """
         self.service = service
         self.config_file = config_file
-        self.interface = interface
+        if isinstance(interface, list):
+            self.interfaces = interface
+        else:
+            self.interfaces = [interface]
 
     def __call__(self):
         ctxt = {'sections': {}}
-        for rid in relation_ids(self.interface):
+        rids = []
+        for interface in self.interfaces:
+            rids.extend(relation_ids(interface))
+        for rid in rids:
             for unit in related_units(rid):
                 sub_config = relation_get('subordinate_configuration',
                                           rid=rid, unit=unit)
@@ -1084,13 +1091,15 @@ class SubordinateConfigContext(OSContextGenerator):
                     sub_config = sub_config[self.config_file]
                     for k, v in six.iteritems(sub_config):
                         if k == 'sections':
-                            for section, config_dict in six.iteritems(v):
+                            for section, config_list in six.iteritems(v):
                                 log("adding section '%s'" % (section),
                                     level=DEBUG)
-                                ctxt[k][section] = config_dict
+                                if ctxt[k].get(section):
+                                    ctxt[k][section].extend(config_list)
+                                else:
+                                    ctxt[k][section] = config_list
                         else:
                             ctxt[k] = v
-
         log("%d section(s) found" % (len(ctxt['sections'])), level=DEBUG)
         return ctxt
 
