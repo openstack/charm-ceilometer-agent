@@ -61,8 +61,9 @@ def ceilometer_changed():
 @hooks.hook('config-changed')
 @restart_on_change(restart_map(), stopstart=True)
 def config_changed():
-    if openstack_upgrade_available('ceilometer-common'):
-        do_openstack_upgrade(CONFIGS)
+    if not config('action-managed-upgrade'):
+        if openstack_upgrade_available('ceilometer-common'):
+            do_openstack_upgrade(CONFIGS)
     if is_relation_made('nrpe-external-master'):
         update_nrpe_config()
     CONFIGS.write_all()
