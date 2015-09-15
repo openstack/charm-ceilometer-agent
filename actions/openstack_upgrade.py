@@ -30,8 +30,9 @@ def openstack_upgrade():
     be set for this code to run, otherwise a full service level upgrade will
     fire on config-changed."""
 
-    if (do_action_openstack_upgrade(do_openstack_upgrade,
-                                    CONFIGS, package='ceilometer-common')):
+    if (do_action_openstack_upgrade('ceilometer-common',
+                                    do_openstack_upgrade,
+                                    CONFIGS)):
         config_changed()
 
 if __name__ == '__main__':
