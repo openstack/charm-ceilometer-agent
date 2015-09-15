@@ -92,6 +92,14 @@ class CeilometerHooksTest(CharmTestCase):
         self.assertTrue(self.CONFIGS.write_all.called)
         self.assertTrue(self.update_nrpe_config.called)
 
+    def test_config_changed_with_openstack_upgrade_action(self):
+        self.openstack_upgrade_available.return_value = True
+        self.test_config.set('action-managed-upgrade', True)
+
+        hooks.hooks.execute(['hooks/config-changed'])
+
+        self.assertFalse(self.do_openstack_upgrade.called)
+
     @patch('charmhelpers.core.hookenv.config')
     def test_config_changed_no_nrpe(self, mock_config):
         self.openstack_upgrade_available.return_value = False
