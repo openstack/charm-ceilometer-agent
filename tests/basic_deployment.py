@@ -14,7 +14,7 @@ from charmhelpers.contrib.openstack.amulet.deployment import (
 from charmhelpers.contrib.openstack.amulet.utils import (
     OpenStackAmuletUtils,
     DEBUG,
-    #ERROR
+    # ERROR
 )
 
 # Use DEBUG to turn on debug logging
