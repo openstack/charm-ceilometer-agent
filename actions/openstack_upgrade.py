@@ -8,15 +8,14 @@ from charmhelpers.contrib.openstack.utils import (
     do_action_openstack_upgrade,
 )
 
-from ceilometer_hooks import config_changed
+from ceilometer_hooks import (
+    config_changed,
+    CONFIGS,
+)
 
 from ceilometer_utils import (
     do_openstack_upgrade,
-    register_configs
 )
-
-
-CONFIGS = register_configs()
 
 
 def openstack_upgrade():
