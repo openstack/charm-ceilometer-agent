@@ -6,6 +6,7 @@ sudo add-apt-repository --yes ppa:juju/stable
 sudo apt-get update --yes
 sudo apt-get install --yes amulet \
                            distro-info-data \
+                           python-ceilometerclient \
                            python-cinderclient \
                            python-distro-info \
                            python-glanceclient \
