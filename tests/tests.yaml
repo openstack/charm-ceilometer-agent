@@ -9,6 +9,7 @@ sources:
 packages:
     - amulet
     - distro-info-data
+    - python-ceilometerclient
     - python-cinderclient
     - python-distro-info
     - python-glanceclient
