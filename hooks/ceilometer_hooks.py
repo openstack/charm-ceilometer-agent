@@ -12,13 +12,15 @@ from charmhelpers.core.hookenv import (
     log,
     is_relation_made,
     relation_set,
+    status_set,
 )
 from charmhelpers.core.host import (
     restart_on_change,
 )
 from charmhelpers.contrib.openstack.utils import (
     configure_installation_source,
-    openstack_upgrade_available
+    openstack_upgrade_available,
+    set_os_workload_status,
 )
 from ceilometer_utils import (
     restart_map,
@@ -26,7 +28,8 @@ from ceilometer_utils import (
     register_configs,
     CEILOMETER_AGENT_PACKAGES,
     NOVA_SETTINGS,
-    do_openstack_upgrade
+    do_openstack_upgrade,
+    REQUIRED_INTERFACES,
 )
 from charmhelpers.contrib.charmsupport import nrpe
 
@@ -38,6 +41,7 @@ CONFIGS = register_configs()
 def install():
     origin = config('openstack-origin')
     configure_installation_source(origin)
+    status_set('maintenance', 'Installing apt packages')
     apt_update(fatal=True)
     apt_install(
         filter_installed_packages(CEILOMETER_AGENT_PACKAGES),
@@ -63,6 +67,7 @@ def ceilometer_changed():
 def config_changed():
     if not config('action-managed-upgrade'):
         if openstack_upgrade_available('ceilometer-common'):
+            status_set('maintenance', 'Running openstack upgrade')
             do_openstack_upgrade(CONFIGS)
     if is_relation_made('nrpe-external-master'):
         update_nrpe_config()
@@ -86,3 +91,4 @@ if __name__ == '__main__':
         hooks.execute(sys.argv)
     except UnregisteredHookError as e:
         log('Unknown hook {} - skipping.'.format(e))
+    set_os_workload_status(CONFIGS, REQUIRED_INTERFACES)
