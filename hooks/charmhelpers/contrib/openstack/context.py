@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with charm-helpers.  If not, see <http://www.gnu.org/licenses/>.
 
+import glob
 import json
 import os
 import re
@@ -194,9 +195,49 @@ def config_flags_parser(config_flags):
 class OSContextGenerator(object):
     """Base class for all context generators."""
     interfaces = []
+    related = False
+    complete = False
+    missing_data = []
 
     def __call__(self):
         raise NotImplementedError
+
+    def context_complete(self, ctxt):
+        """Check for missing data for the required context data.
+        Set self.missing_data if it exists and return False.
+        Set self.complete if no missing data and return True.
+        """
+        # Fresh start
+        self.complete = False
+        self.missing_data = []
+        for k, v in six.iteritems(ctxt):
+            if v is None or v == '':
+                if k not in self.missing_data:
+                    self.missing_data.append(k)
+
+        if self.missing_data:
+            self.complete = False
+            log('Missing required data: %s' % ' '.join(self.missing_data), level=INFO)
+        else:
+            self.complete = True
+        return self.complete
+
+    def get_related(self):
+        """Check if any of the context interfaces have relation ids.
+        Set self.related and return True if one of the interfaces
+        has relation ids.
+        """
+        # Fresh start
+        self.related = False
+        try:
+            for interface in self.interfaces:
+                if relation_ids(interface):
+                    self.related = True
+            return self.related
+        except AttributeError as e:
+            log("{} {}"
+                "".format(self, e), 'INFO')
+            return self.related
 
 
 class SharedDBContext(OSContextGenerator):
@@ -213,6 +254,7 @@ class SharedDBContext(OSContextGenerator):
         self.database = database
         self.user = user
         self.ssl_dir = ssl_dir
+        self.rel_name = self.interfaces[0]
 
     def __call__(self):
         self.database = self.database or config('database')
@@ -246,6 +288,7 @@ class SharedDBContext(OSContextGenerator):
             password_setting = self.relation_prefix + '_password'
 
         for rid in relation_ids(self.interfaces[0]):
+            self.related = True
             for unit in related_units(rid):
                 rdata = relation_get(rid=rid, unit=unit)
                 host = rdata.get('db_host')
@@ -257,7 +300,7 @@ class SharedDBContext(OSContextGenerator):
                     'database_password': rdata.get(password_setting),
                     'database_type': 'mysql'
                 }
-                if context_complete(ctxt):
+                if self.context_complete(ctxt):
                     db_ssl(rdata, ctxt, self.ssl_dir)
                     return ctxt
         return {}
@@ -278,6 +321,7 @@ class PostgresqlDBContext(OSContextGenerator):
 
         ctxt = {}
         for rid in relation_ids(self.interfaces[0]):
+            self.related = True
             for unit in related_units(rid):
                 rel_host = relation_get('host', rid=rid, unit=unit)
                 rel_user = relation_get('user', rid=rid, unit=unit)
@@ -287,7 +331,7 @@ class PostgresqlDBContext(OSContextGenerator):
                         'database_user': rel_user,
                         'database_password': rel_passwd,
                         'database_type': 'postgresql'}
-                if context_complete(ctxt):
+                if self.context_complete(ctxt):
                     return ctxt
 
         return {}
@@ -348,6 +392,7 @@ class IdentityServiceContext(OSContextGenerator):
             ctxt['signing_dir'] = cachedir
 
         for rid in relation_ids(self.rel_name):
+            self.related = True
             for unit in related_units(rid):
                 rdata = relation_get(rid=rid, unit=unit)
                 serv_host = rdata.get('service_host')
@@ -366,7 +411,7 @@ class IdentityServiceContext(OSContextGenerator):
                              'service_protocol': svc_protocol,
                              'auth_protocol': auth_protocol})
 
-                if context_complete(ctxt):
+                if self.context_complete(ctxt):
                     # NOTE(jamespage) this is required for >= icehouse
                     # so a missing value just indicates keystone needs
                     # upgrading
@@ -405,6 +450,7 @@ class AMQPContext(OSContextGenerator):
         ctxt = {}
         for rid in relation_ids(self.rel_name):
             ha_vip_only = False
+            self.related = True
             for unit in related_units(rid):
                 if relation_get('clustered', rid=rid, unit=unit):
                     ctxt['clustered'] = True
@@ -437,7 +483,7 @@ class AMQPContext(OSContextGenerator):
                 ha_vip_only = relation_get('ha-vip-only',
                                            rid=rid, unit=unit) is not None
 
-                if context_complete(ctxt):
+                if self.context_complete(ctxt):
                     if 'rabbit_ssl_ca' in ctxt:
                         if not self.ssl_dir:
                             log("Charm not setup for ssl support but ssl ca "
@@ -469,7 +515,7 @@ class AMQPContext(OSContextGenerator):
             ctxt['oslo_messaging_flags'] = config_flags_parser(
                 oslo_messaging_flags)
 
-        if not context_complete(ctxt):
+        if not self.complete:
             return {}
 
         return ctxt
@@ -507,7 +553,7 @@ class CephContext(OSContextGenerator):
         if not os.path.isdir('/etc/ceph'):
             os.mkdir('/etc/ceph')
 
-        if not context_complete(ctxt):
+        if not self.context_complete(ctxt):
             return {}
 
         ensure_packages(['ceph-common'])
@@ -906,6 +952,19 @@ class NeutronContext(OSContextGenerator):
                     'config': config}
         return ovs_ctxt
 
+    def midonet_ctxt(self):
+        driver = neutron_plugin_attribute(self.plugin, 'driver',
+                                          self.network_manager)
+        midonet_config = neutron_plugin_attribute(self.plugin, 'config',
+                                                  self.network_manager)
+        mido_ctxt = {'core_plugin': driver,
+                     'neutron_plugin': 'midonet',
+                     'neutron_security_groups': self.neutron_security_groups,
+                     'local_ip': unit_private_ip(),
+                     'config': midonet_config}
+
+        return mido_ctxt
+
     def __call__(self):
         if self.network_manager not in ['quantum', 'neutron']:
             return {}
@@ -927,6 +986,8 @@ class NeutronContext(OSContextGenerator):
             ctxt.update(self.nuage_ctxt())
         elif self.plugin == 'plumgrid':
             ctxt.update(self.pg_ctxt())
+        elif self.plugin == 'midonet':
+            ctxt.update(self.midonet_ctxt())
 
         alchemy_flags = config('neutron-alchemy-flags')
         if alchemy_flags:
@@ -1059,7 +1120,7 @@ class SubordinateConfigContext(OSContextGenerator):
 
         ctxt = {
             ... other context ...
-            'subordinate_config': {
+            'subordinate_configuration': {
                 'DEFAULT': {
                     'key1': 'value1',
                 },
@@ -1100,22 +1161,23 @@ class SubordinateConfigContext(OSContextGenerator):
                     try:
                         sub_config = json.loads(sub_config)
                     except:
-                        log('Could not parse JSON from subordinate_config '
-                            'setting from %s' % rid, level=ERROR)
+                        log('Could not parse JSON from '
+                            'subordinate_configuration setting from %s'
+                            % rid, level=ERROR)
                         continue
 
                     for service in self.services:
                         if service not in sub_config:
-                            log('Found subordinate_config on %s but it contained'
-                                'nothing for %s service' % (rid, service),
-                                level=INFO)
+                            log('Found subordinate_configuration on %s but it '
+                                'contained nothing for %s service'
+                                % (rid, service), level=INFO)
                             continue
 
                         sub_config = sub_config[service]
                         if self.config_file not in sub_config:
-                            log('Found subordinate_config on %s but it contained'
-                                'nothing for %s' % (rid, self.config_file),
-                                level=INFO)
+                            log('Found subordinate_configuration on %s but it '
+                                'contained nothing for %s'
+                                % (rid, self.config_file), level=INFO)
                             continue
 
                         sub_config = sub_config[self.config_file]
@@ -1318,7 +1380,7 @@ class DataPortContext(NeutronPortContext):
             normalized.update({port: port for port in resolved
                                if port in ports})
             if resolved:
-                return {bridge: normalized[port] for port, bridge in
+                return {normalized[port]: bridge for port, bridge in
                         six.iteritems(portmap) if port in normalized.keys()}
 
         return None
@@ -1329,12 +1391,22 @@ class PhyNICMTUContext(DataPortContext):
     def __call__(self):
         ctxt = {}
         mappings = super(PhyNICMTUContext, self).__call__()
-        if mappings and mappings.values():
-            ports = mappings.values()
+        if mappings and mappings.keys():
+            ports = sorted(mappings.keys())
             napi_settings = NeutronAPIContext()()
             mtu = napi_settings.get('network_device_mtu')
+            all_ports = set()
+            # If any of ports is a vlan device, its underlying device must have
+            # mtu applied first.
+            for port in ports:
+                for lport in glob.glob("/sys/class/net/%s/lower_*" % port):
+                    lport = os.path.basename(lport)
+                    all_ports.add(lport.split('_')[1])
+
+            all_ports = list(all_ports)
+            all_ports.extend(ports)
             if mtu:
-                ctxt["devs"] = '\\n'.join(ports)
+                ctxt["devs"] = '\\n'.join(all_ports)
                 ctxt['mtu'] = mtu
 
         return ctxt
@@ -1366,6 +1438,6 @@ class NetworkServiceContext(OSContextGenerator):
                     'auth_protocol':
                     rdata.get('auth_protocol') or 'http',
                 }
-                if context_complete(ctxt):
+                if self.context_complete(ctxt):
                     return ctxt
         return {}

@@ -55,6 +55,9 @@ CONFIG_FILES = {
 
 TEMPLATES = 'templates'
 
+REQUIRED_INTERFACES = {
+    'ceilometer': ['ceilometer-service'],
+}
 
 def register_configs():
     """

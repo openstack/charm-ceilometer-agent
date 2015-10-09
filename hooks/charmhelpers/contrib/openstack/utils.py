@@ -42,7 +42,9 @@ from charmhelpers.core.hookenv import (
     charm_dir,
     INFO,
     relation_ids,
-    relation_set
+    relation_set,
+    status_set,
+    hook_name
 )
 
 from charmhelpers.contrib.storage.linux.lvm import (
@@ -52,7 +54,8 @@ from charmhelpers.contrib.storage.linux.lvm import (
 )
 
 from charmhelpers.contrib.network.ip import (
-    get_ipv6_addr
+    get_ipv6_addr,
+    is_ipv6,
 )
 
 from charmhelpers.contrib.python.packages import (
@@ -517,6 +520,12 @@ def sync_db_with_multi_ipv6_addresses(database, database_user,
                                       relation_prefix=None):
     hosts = get_ipv6_addr(dynamic_only=False)
 
+    if config('vip'):
+        vips = config('vip').split()
+        for vip in vips:
+            if vip and is_ipv6(vip):
+                hosts.append(vip)
+
     kwargs = {'database': database,
               'username': database_user,
               'hostname': json.dumps(hosts)}
@@ -752,6 +761,176 @@ def git_yaml_value(projects_yaml, key):
         return projects[key]
 
     return None
+
+
+def os_workload_status(configs, required_interfaces, charm_func=None):
+    """
+    Decorator to set workload status based on complete contexts
+    """
+    def wrap(f):
+        @wraps(f)
+        def wrapped_f(*args, **kwargs):
+            # Run the original function first
+            f(*args, **kwargs)
+            # Set workload status now that contexts have been
+            # acted on
+            set_os_workload_status(configs, required_interfaces, charm_func)
+        return wrapped_f
+    return wrap
+
+
+def set_os_workload_status(configs, required_interfaces, charm_func=None):
+    """
+    Set workload status based on complete contexts.
+    status-set missing or incomplete contexts
+    and juju-log details of missing required data.
+    charm_func is a charm specific function to run checking
+    for charm specific requirements such as a VIP setting.
+    """
+    incomplete_rel_data = incomplete_relation_data(configs, required_interfaces)
+    state = 'active'
+    missing_relations = []
+    incomplete_relations = []
+    message = None
+    charm_state = None
+    charm_message = None
+
+    for generic_interface in incomplete_rel_data.keys():
+        related_interface = None
+        missing_data = {}
+        # Related or not?
+        for interface in incomplete_rel_data[generic_interface]:
+            if incomplete_rel_data[generic_interface][interface].get('related'):
+                related_interface = interface
+                missing_data = incomplete_rel_data[generic_interface][interface].get('missing_data')
+        # No relation ID for the generic_interface
+        if not related_interface:
+            juju_log("{} relation is missing and must be related for "
+                     "functionality. ".format(generic_interface), 'WARN')
+            state = 'blocked'
+            if generic_interface not in missing_relations:
+                missing_relations.append(generic_interface)
+        else:
+            # Relation ID exists but no related unit
+            if not missing_data:
+                # Edge case relation ID exists but departing
+                if ('departed' in hook_name() or 'broken' in hook_name()) \
+                        and related_interface in hook_name():
+                    state = 'blocked'
+                    if generic_interface not in missing_relations:
+                        missing_relations.append(generic_interface)
+                    juju_log("{} relation's interface, {}, "
+                             "relationship is departed or broken "
+                             "and is required for functionality."
+                             "".format(generic_interface, related_interface), "WARN")
+                # Normal case relation ID exists but no related unit
+                # (joining)
+                else:
+                    juju_log("{} relations's interface, {}, is related but has "
+                             "no units in the relation."
+                             "".format(generic_interface, related_interface), "INFO")
+            # Related unit exists and data missing on the relation
+            else:
+                juju_log("{} relation's interface, {}, is related awaiting "
+                         "the following data from the relationship: {}. "
+                         "".format(generic_interface, related_interface,
+                                   ", ".join(missing_data)), "INFO")
+            if state != 'blocked':
+                state = 'waiting'
+            if generic_interface not in incomplete_relations \
+                    and generic_interface not in missing_relations:
+                incomplete_relations.append(generic_interface)
+
+    if missing_relations:
+        message = "Missing relations: {}".format(", ".join(missing_relations))
+        if incomplete_relations:
+            message += "; incomplete relations: {}" \
+                       "".format(", ".join(incomplete_relations))
+        state = 'blocked'
+    elif incomplete_relations:
+        message = "Incomplete relations: {}" \
+                  "".format(", ".join(incomplete_relations))
+        state = 'waiting'
+
+    # Run charm specific checks
+    if charm_func:
+        charm_state, charm_message = charm_func(configs)
+        if charm_state != 'active' and charm_state != 'unknown':
+            state = workload_state_compare(state, charm_state)
+            if message:
+                message = "{} {}".format(message, charm_message)
+            else:
+                message = charm_message
+
+    # Set to active if all requirements have been met
+    if state == 'active':
+        message = "Unit is ready"
+        juju_log(message, "INFO")
+
+    status_set(state, message)
+
+
+def workload_state_compare(current_workload_state, workload_state):
+    """ Return highest priority of two states"""
+    hierarchy = {'unknown': -1,
+                 'active': 0,
+                 'maintenance': 1,
+                 'waiting': 2,
+                 'blocked': 3,
+                 }
+
+    if hierarchy.get(workload_state) is None:
+        workload_state = 'unknown'
+    if hierarchy.get(current_workload_state) is None:
+        current_workload_state = 'unknown'
+
+    # Set workload_state based on hierarchy of statuses
+    if hierarchy.get(current_workload_state) > hierarchy.get(workload_state):
+        return current_workload_state
+    else:
+        return workload_state
+
+
+def incomplete_relation_data(configs, required_interfaces):
+    """
+    Check complete contexts against required_interfaces
+    Return dictionary of incomplete relation data.
+
+    configs is an OSConfigRenderer object with configs registered
+
+    required_interfaces is a dictionary of required general interfaces
+    with dictionary values of possible specific interfaces.
+    Example:
+    required_interfaces = {'database': ['shared-db', 'pgsql-db']}
+
+    The interface is said to be satisfied if anyone of the interfaces in the
+    list has a complete context.
+
+    Return dictionary of incomplete or missing required contexts with relation
+    status of interfaces and any missing data points. Example:
+        {'message':
+             {'amqp': {'missing_data': ['rabbitmq_password'], 'related': True},
+              'zeromq-configuration': {'related': False}},
+         'identity':
+             {'identity-service': {'related': False}},
+         'database':
+             {'pgsql-db': {'related': False},
+              'shared-db': {'related': True}}}
+    """
+    complete_ctxts = configs.complete_contexts()
+    incomplete_relations = []
+    for svc_type in required_interfaces.keys():
+        # Avoid duplicates
+        found_ctxt = False
+        for interface in required_interfaces[svc_type]:
+            if interface in complete_ctxts:
+                found_ctxt = True
+        if not found_ctxt:
+            incomplete_relations.append(svc_type)
+    incomplete_context_data = {}
+    for i in incomplete_relations:
+        incomplete_context_data[i] = configs.get_incomplete_context_data(required_interfaces[i])
+    return incomplete_context_data
 
 
 def do_action_openstack_upgrade(package, upgrade_callback, configs):
