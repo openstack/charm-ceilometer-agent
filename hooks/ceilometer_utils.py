@@ -59,6 +59,7 @@ REQUIRED_INTERFACES = {
     'ceilometer': ['ceilometer-service'],
 }
 
+
 def register_configs():
     """
     Register config files with their respective contexts.
