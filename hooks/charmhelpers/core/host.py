@@ -566,7 +566,14 @@ def chdir(d):
         os.chdir(cur)
 
 
-def chownr(path, owner, group, follow_links=True):
+def chownr(path, owner, group, follow_links=True, chowntopdir=False):
+    """
+    Recursively change user and group ownership of files and directories
+    in given path. Doesn't chown path itself by default, only its children.
+
+    :param bool follow_links: Also Chown links if True
+    :param bool chowntopdir: Also chown path itself if True
+    """
     uid = pwd.getpwnam(owner).pw_uid
     gid = grp.getgrnam(group).gr_gid
     if follow_links:
@@ -574,6 +581,10 @@ def chownr(path, owner, group, follow_links=True):
     else:
         chown = os.lchown
 
+    if chowntopdir:
+        broken_symlink = os.path.lexists(path) and not os.path.exists(path)
+        if not broken_symlink:
+            chown(path, uid, gid)
     for root, dirs, files in os.walk(path):
         for name in dirs + files:
             full = os.path.join(root, name)

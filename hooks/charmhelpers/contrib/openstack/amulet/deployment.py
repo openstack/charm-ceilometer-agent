@@ -14,6 +14,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with charm-helpers.  If not, see <http://www.gnu.org/licenses/>.
 
+import re
 import six
 from collections import OrderedDict
 from charmhelpers.contrib.amulet.deployment import (
@@ -113,6 +114,45 @@ class OpenStackAmuletDeployment(AmuletDeployment):
         """Configure all of the services."""
         for service, config in six.iteritems(configs):
             self.d.configure(service, config)
+
+    def _auto_wait_for_status(self, message=None, exclude_services=None,
+                              timeout=1800):
+        """Wait for all units to have a specific extended status, except
+        for any defined as excluded.  Unless specified via message, any
+        status containing any case of 'ready' will be considered a match.
+
+        Examples of message usage:
+
+          Wait for all unit status to CONTAIN any case of 'ready' or 'ok':
+              message = re.compile('.*ready.*|.*ok.*', re.IGNORECASE)
+
+          Wait for all units to reach this status (exact match):
+              message = 'Unit is ready'
+
+          Wait for all units to reach any one of these (exact match):
+              message = re.compile('Unit is ready|OK|Ready')
+
+          Wait for at least one unit to reach this status (exact match):
+              message = {'ready'}
+
+        See Amulet's sentry.wait_for_messages() for message usage detail.
+        https://github.com/juju/amulet/blob/master/amulet/sentry.py
+
+        :param message: Expected status match
+        :param exclude_services: List of juju service names to ignore
+        :param timeout: Maximum time in seconds to wait for status match
+        :returns: None.  Raises if timeout is hit.
+        """
+
+        if not message:
+            message = re.compile('.*ready.*', re.IGNORECASE)
+
+        if not exclude_services:
+            exclude_services = []
+
+        services = list(set(self.d.services.keys()) - set(exclude_services))
+        service_messages = {service: message for service in services}
+        self.d.sentry.wait_for_messages(service_messages, timeout=timeout)
 
     def _get_openstack_release(self):
         """Get openstack release.
