@@ -13,7 +13,6 @@ from test_utils import (
 TO_PATCH = [
     'config_changed',
     'do_openstack_upgrade',
-    'uuid'
 ]
 
 

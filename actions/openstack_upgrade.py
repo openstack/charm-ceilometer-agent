@@ -1,6 +1,5 @@
 #!/usr/bin/python
 import sys
-import uuid
 
 sys.path.append('hooks/')
 
