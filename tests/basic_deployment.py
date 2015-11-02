@@ -468,7 +468,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
                 'auth_uri': auth_uri,
                 'auth_host': ks_rel['auth_host'],
                 'auth_port': ks_rel['auth_port'],
-                'auth_protocol':  ks_rel['auth_protocol'],
+                'auth_protocol': ks_rel['auth_protocol'],
                 'admin_tenant_name': 'services',
                 'admin_user': 'ceilometer',
                 'admin_password': ks_rel['service_password'],
