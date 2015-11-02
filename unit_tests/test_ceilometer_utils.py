@@ -47,7 +47,7 @@ class CeilometerUtilsTest(CharmTestCase):
         configs = MagicMock()
         utils.do_openstack_upgrade(configs)
         configs.set_release.assert_called_with(openstack_release='havana')
-        self.log.assert_called()
+        self.assertTrue(self.log.called)
         self.apt_update.assert_called_with(fatal=True)
         dpkg_opts = [
             '--option', 'Dpkg::Options::=--force-confnew',
