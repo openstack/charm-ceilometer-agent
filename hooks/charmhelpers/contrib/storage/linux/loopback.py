@@ -76,3 +76,13 @@ def ensure_loopback_device(path, size):
         check_call(cmd)
 
     return create_loopback(path)
+
+
+def is_mapped_loopback_device(device):
+    """
+    Checks if a given device name is an existing/mapped loopback device.
+    :param device: str: Full path to the device (eg, /dev/loop1).
+    :returns: str: Path to the backing file if is a loopback device
+    empty string otherwise
+    """
+    return loopback_devices().get(device, "")
