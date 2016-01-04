@@ -204,8 +204,8 @@ def neutron_plugins():
                                         database=config('database'),
                                         ssl_dir=NEUTRON_CONF_DIR)],
             'services': [],
-            'packages': [['plumgrid-lxc'],
-                         ['iovisor-dkms']],
+            'packages': ['plumgrid-lxc',
+                         'iovisor-dkms'],
             'server_packages': ['neutron-server',
                                 'neutron-plugin-plumgrid'],
             'server_services': ['neutron-server']
