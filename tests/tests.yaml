@@ -1,5 +1,5 @@
 bootstrap: true
-reset: true
+reset: false
 virtualenv: true
 makefile:
     - lint
