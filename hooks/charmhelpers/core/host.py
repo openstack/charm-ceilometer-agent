@@ -138,7 +138,8 @@ def service_running(service_name):
         except subprocess.CalledProcessError:
             return False
         else:
-            if ("start/running" in output or "is running" in output):
+            if ("start/running" in output or "is running" in output or
+                    "up and running" in output):
                 return True
             else:
                 return False

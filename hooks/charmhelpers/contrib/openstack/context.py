@@ -90,6 +90,12 @@ from charmhelpers.contrib.network.ip import (
 from charmhelpers.contrib.openstack.utils import get_host_ip
 from charmhelpers.core.unitdata import kv
 
+try:
+    import psutil
+except ImportError:
+    apt_install('python-psutil', fatal=True)
+    import psutil
+
 CA_CERT_PATH = '/usr/local/share/ca-certificates/keystone_juju_ca_cert.crt'
 ADDRESS_TYPES = ['admin', 'internal', 'public']
 
@@ -404,6 +410,7 @@ class IdentityServiceContext(OSContextGenerator):
                 auth_host = format_ipv6_addr(auth_host) or auth_host
                 svc_protocol = rdata.get('service_protocol') or 'http'
                 auth_protocol = rdata.get('auth_protocol') or 'http'
+                api_version = rdata.get('api_version') or '2.0'
                 ctxt.update({'service_port': rdata.get('service_port'),
                              'service_host': serv_host,
                              'auth_host': auth_host,
@@ -412,7 +419,8 @@ class IdentityServiceContext(OSContextGenerator):
                              'admin_user': rdata.get('service_username'),
                              'admin_password': rdata.get('service_password'),
                              'service_protocol': svc_protocol,
-                             'auth_protocol': auth_protocol})
+                             'auth_protocol': auth_protocol,
+                             'api_version': api_version})
 
                 if self.context_complete(ctxt):
                     # NOTE(jamespage) this is required for >= icehouse
@@ -1258,13 +1266,11 @@ class WorkerConfigContext(OSContextGenerator):
 
     @property
     def num_cpus(self):
-        try:
-            from psutil import NUM_CPUS
-        except ImportError:
-            apt_install('python-psutil', fatal=True)
-            from psutil import NUM_CPUS
-
-        return NUM_CPUS
+        # NOTE: use cpu_count if present (16.04 support)
+        if hasattr(psutil, 'cpu_count'):
+            return psutil.cpu_count()
+        else:
+            return psutil.NUM_CPUS
 
     def __call__(self):
         multiplier = config('worker-multiplier') or 0
@@ -1467,6 +1473,8 @@ class NetworkServiceContext(OSContextGenerator):
                     rdata.get('service_protocol') or 'http',
                     'auth_protocol':
                     rdata.get('auth_protocol') or 'http',
+                    'api_version':
+                    rdata.get('api_version') or '2.0',
                 }
                 if self.context_complete(ctxt):
                     return ctxt

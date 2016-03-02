@@ -50,7 +50,7 @@ def determine_dkms_package():
     if kernel_version() >= (3, 13):
         return []
     else:
-        return ['openvswitch-datapath-dkms']
+        return [headers_package(), 'openvswitch-datapath-dkms']
 
 
 # legacy
@@ -70,7 +70,7 @@ def quantum_plugins():
                                         relation_prefix='neutron',
                                         ssl_dir=QUANTUM_CONF_DIR)],
             'services': ['quantum-plugin-openvswitch-agent'],
-            'packages': [[headers_package()] + determine_dkms_package(),
+            'packages': [determine_dkms_package(),
                          ['quantum-plugin-openvswitch-agent']],
             'server_packages': ['quantum-server',
                                 'quantum-plugin-openvswitch'],
@@ -111,7 +111,7 @@ def neutron_plugins():
                                         relation_prefix='neutron',
                                         ssl_dir=NEUTRON_CONF_DIR)],
             'services': ['neutron-plugin-openvswitch-agent'],
-            'packages': [[headers_package()] + determine_dkms_package(),
+            'packages': [determine_dkms_package(),
                          ['neutron-plugin-openvswitch-agent']],
             'server_packages': ['neutron-server',
                                 'neutron-plugin-openvswitch'],
@@ -155,7 +155,7 @@ def neutron_plugins():
                                         relation_prefix='neutron',
                                         ssl_dir=NEUTRON_CONF_DIR)],
             'services': [],
-            'packages': [[headers_package()] + determine_dkms_package(),
+            'packages': [determine_dkms_package(),
                          ['neutron-plugin-cisco']],
             'server_packages': ['neutron-server',
                                 'neutron-plugin-cisco'],
@@ -174,7 +174,7 @@ def neutron_plugins():
                          'neutron-dhcp-agent',
                          'nova-api-metadata',
                          'etcd'],
-            'packages': [[headers_package()] + determine_dkms_package(),
+            'packages': [determine_dkms_package(),
                          ['calico-compute',
                           'bird',
                           'neutron-dhcp-agent',
@@ -219,7 +219,7 @@ def neutron_plugins():
                                         relation_prefix='neutron',
                                         ssl_dir=NEUTRON_CONF_DIR)],
             'services': [],
-            'packages': [[headers_package()] + determine_dkms_package()],
+            'packages': [determine_dkms_package()],
             'server_packages': ['neutron-server',
                                 'python-neutron-plugin-midonet'],
             'server_services': ['neutron-server']
@@ -233,6 +233,20 @@ def neutron_plugins():
                                              'neutron-plugin-ml2']
         # NOTE: patch in vmware renames nvp->nsx for icehouse onwards
         plugins['nvp'] = plugins['nsx']
+    if release >= 'kilo':
+        plugins['midonet']['driver'] = (
+            'neutron.plugins.midonet.plugin.MidonetPluginV2')
+    if release >= 'liberty':
+        plugins['midonet']['driver'] = (
+            'midonet.neutron.plugin_v1.MidonetPluginV2')
+        plugins['midonet']['server_packages'].remove(
+            'python-neutron-plugin-midonet')
+        plugins['midonet']['server_packages'].append(
+            'python-networking-midonet')
+        plugins['plumgrid']['driver'] = (
+            'networking_plumgrid.neutron.plugins.plugin.NeutronPluginPLUMgridV2')
+        plugins['plumgrid']['server_packages'].remove(
+            'neutron-plugin-plumgrid')
     return plugins
 
 
