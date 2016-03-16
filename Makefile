@@ -2,13 +2,11 @@
 PYTHON := /usr/bin/env python
 
 lint:
-	@flake8 --exclude hooks/charmhelpers,tests/charmhelpers \
-        hooks tests unit_tests
-	@charm proof
+	@tox -e pep8
 
 test:
-	@# Bundletester expects unit tests here.
-	@$(PYTHON) /usr/bin/nosetests -v --nologcapture --with-coverage unit_tests
+	@echo Starting unit tests...
+	@tox -e py27
 
 functional_test:
 	@echo Starting Amulet tests...
