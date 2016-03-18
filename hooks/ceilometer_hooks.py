@@ -14,13 +14,10 @@ from charmhelpers.core.hookenv import (
     relation_set,
     status_set,
 )
-from charmhelpers.core.host import (
-    restart_on_change,
-)
 from charmhelpers.contrib.openstack.utils import (
     configure_installation_source,
     openstack_upgrade_available,
-    set_os_workload_status,
+    pausable_restart_on_change as restart_on_change,
 )
 from ceilometer_utils import (
     restart_map,
@@ -29,7 +26,7 @@ from ceilometer_utils import (
     CEILOMETER_AGENT_PACKAGES,
     NOVA_SETTINGS,
     do_openstack_upgrade,
-    REQUIRED_INTERFACES,
+    assess_status,
 )
 from charmhelpers.contrib.charmsupport import nrpe
 
@@ -91,4 +88,5 @@ if __name__ == '__main__':
         hooks.execute(sys.argv)
     except UnregisteredHookError as e:
         log('Unknown hook {} - skipping.'.format(e))
-    set_os_workload_status(CONFIGS, REQUIRED_INTERFACES)
+    # set_os_workload_status(CONFIGS, REQUIRED_INTERFACES)
+    assess_status(CONFIGS)

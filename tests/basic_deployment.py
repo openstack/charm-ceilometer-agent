@@ -1,5 +1,8 @@
+import subprocess
 import amulet
-from ceilometerclient.v2 import client as ceilclient
+import json
+import time
+import ceilometerclient.client
 
 from charmhelpers.contrib.openstack.amulet.deployment import (
     OpenStackAmuletDeployment
@@ -102,7 +105,43 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         # Authenticate admin with ceilometer endpoint
         ep = self.keystone.service_catalog.url_for(service_type='metering',
                                                    endpoint_type='publicURL')
-        self.ceil = ceilclient.Client(endpoint=ep, token=self._get_token)
+        os_token = self.keystone.auth_token
+        # TODO(ajkavanagh) For v2 clients, this is what is really wanted, but
+        # won't work with trusty 1.0.8 client.  The following statement works
+        # with both, but is deprecated.  Remove once testing happens only on
+        # xenial.
+        # self.ceil = ceilometerclient.client.get_client(
+        #     '2', os_endpoint=ep, os_token=os_token)
+        # This call signature is (currently) compatible with 1.0.8 and 2.3.0 of
+        # python-ceilometerclient
+        self.ceil = ceilometerclient.client.get_client(
+            '2', ceilometer_url=ep, os_auth_token=lambda: os_token)
+
+    def _run_action(self, unit_id, action, *args):
+        command = ["juju", "action", "do", "--format=json", unit_id, action]
+        command.extend(args)
+        print("Running command: %s\n" % " ".join(command))
+        output = subprocess.check_output(command)
+        output_json = output.decode(encoding="UTF-8")
+        data = json.loads(output_json)
+        action_id = data[u'Action queued with id']
+        return action_id
+
+    def _wait_on_action(self, action_id):
+        command = ["juju", "action", "fetch", "--format=json", action_id]
+        while True:
+            try:
+                output = subprocess.check_output(command)
+            except Exception as e:
+                print(e)
+                return False
+            output_json = output.decode(encoding="UTF-8")
+            data = json.loads(output_json)
+            if data[u"status"] == "completed":
+                return True
+            elif data[u"status"] == "failed":
+                return False
+            time.sleep(2)
 
     def test_100_services(self):
         """Verify the expected services are running on the corresponding
@@ -615,4 +654,21 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             sleep_time = 0
 
         self.d.configure(juju_service, set_default)
+        u.log.debug('OK')
+
+    def test_910_pause_and_resume(self):
+        """The services can be paused and resumed. """
+        u.log.debug('Checking pause and resume actions...')
+        unit_name = "ceilometer-agent/0"
+        unit = self.d.sentry.unit[unit_name]
+
+        assert u.status_get(unit)[0] == "active"
+
+        action_id = self._run_action(unit_name, "pause")
+        assert self._wait_on_action(action_id), "Pause action failed."
+        assert u.status_get(unit)[0] == "maintenance"
+
+        action_id = self._run_action(unit_name, "resume")
+        assert self._wait_on_action(action_id), "Resume action failed."
+        assert u.status_get(unit)[0] == "active"
         u.log.debug('OK')
