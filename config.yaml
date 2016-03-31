@@ -50,3 +50,10 @@ options:
       wait for you to execute the openstack-upgrade action for this charm on
       each unit. If False it will revert to existing behavior of upgrading
       all units on config change.
+  use-internal-endpoints:
+    default: False
+    type: boolean
+    description: |
+      Openstack mostly defaults to using public endpoints for
+      internal communication between services. If set to True this option will
+      configure services to use internal endpoints where possible.

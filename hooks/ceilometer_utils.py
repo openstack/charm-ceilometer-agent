@@ -1,8 +1,9 @@
 from charmhelpers.contrib.openstack import (
+    context,
     templating,
 )
 from ceilometer_contexts import (
-    CeilometerServiceContext
+    CeilometerServiceContext,
 )
 from charmhelpers.contrib.openstack.utils import (
     get_os_codename_package,
@@ -51,7 +52,8 @@ NOVA_SETTINGS = {
 CONFIG_FILES = {
     CEILOMETER_CONF: {
         'hook_contexts': [
-            CeilometerServiceContext(ssl_dir=CEILOMETER_CONF_DIR)],
+            CeilometerServiceContext(ssl_dir=CEILOMETER_CONF_DIR),
+            context.InternalEndpointContext()],
         'services': CEILOMETER_AGENT_SERVICES
     }
 }
