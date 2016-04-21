@@ -21,7 +21,7 @@ u = OpenStackAmuletUtils(DEBUG)
 class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
     """Amulet tests on a basic ceilometer-agent deployment."""
 
-    def __init__(self, series, openstack=None, source=None, stable=False):
+    def __init__(self, series, openstack=None, source=None, stable=True):
         """Deploy the entire test environment."""
         super(CeiloAgentBasicDeployment, self).__init__(series, openstack,
                                                         source, stable)
