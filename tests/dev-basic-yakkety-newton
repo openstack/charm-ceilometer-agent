@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 #
 # Copyright 2016 Canonical Ltd
 #
@@ -14,10 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Amulet tests on a basic ceilometer-agent deployment on wily-liberty."""
+"""Amulet tests on a basic ceilometer-agent deployment on yakkety-newton."""
 
 from basic_deployment import CeiloAgentBasicDeployment
 
 if __name__ == '__main__':
-    deployment = CeiloAgentBasicDeployment(series='wily')
+    deployment = CeiloAgentBasicDeployment(series='yakkety')
     deployment.run_tests()
