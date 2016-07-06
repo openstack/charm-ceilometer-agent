@@ -1,18 +1,16 @@
 # Copyright 2014-2016 Canonical Limited.
 #
-# This file is part of charm-helpers.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# charm-helpers is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Lesser General Public License version 3 as
-# published by the Free Software Foundation.
+#  http://www.apache.org/licenses/LICENSE-2.0
 #
-# charm-helpers is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with charm-helpers.  If not, see <http://www.gnu.org/licenses/>.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 #
 # Copyright 2016 Canonical Ltd.
@@ -34,6 +32,10 @@ from charmhelpers.core.hookenv import (
     config,
     status_set,
     DEBUG,
+)
+
+from charmhelpers.core.host import (
+    lsb_release
 )
 
 from charmhelpers.contrib.openstack.ip import (
@@ -63,8 +65,11 @@ def update_dns_ha_resource_params(resources, resource_params,
                     DNS HA
     """
 
+    # Validate the charm environment for DNS HA
+    assert_charm_supports_dns_ha()
+
     settings = ['os-admin-hostname', 'os-internal-hostname',
-                'os-public-hostname']
+                'os-public-hostname', 'os-access-hostname']
 
     # Check which DNS settings are set and update dictionaries
     hostname_group = []
@@ -109,3 +114,15 @@ def update_dns_ha_resource_params(resources, resource_params,
         msg = 'DNS HA: Hostname group has no members.'
         status_set('blocked', msg)
         raise DNSHAException(msg)
+
+
+def assert_charm_supports_dns_ha():
+    """Validate prerequisites for DNS HA
+    The MAAS client is only available on Xenial or greater
+    """
+    if lsb_release().get('DISTRIB_RELEASE') < '16.04':
+        msg = ('DNS HA is only supported on 16.04 and greater '
+               'versions of Ubuntu.')
+        status_set('blocked', msg)
+        raise DNSHAException(msg)
+    return True

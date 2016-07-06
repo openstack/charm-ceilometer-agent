@@ -1,18 +1,16 @@
 # Copyright 2014-2015 Canonical Limited.
 #
-# This file is part of charm-helpers.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# charm-helpers is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Lesser General Public License version 3 as
-# published by the Free Software Foundation.
+#  http://www.apache.org/licenses/LICENSE-2.0
 #
-# charm-helpers is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Lesser General Public License for more details.
-#
-# You should have received a copy of the GNU Lesser General Public License
-# along with charm-helpers.  If not, see <http://www.gnu.org/licenses/>.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 # Common python helper functions used for OpenStack charms.
 from collections import OrderedDict
@@ -222,7 +220,6 @@ GIT_DEFAULT_REPOS = {
 }
 
 GIT_DEFAULT_BRANCHES = {
-    'icehouse': 'icehouse-eol',
     'kilo': 'stable/kilo',
     'liberty': 'stable/liberty',
     'mitaka': 'stable/mitaka',
@@ -725,14 +722,15 @@ def git_install_requested():
 requirements_dir = None
 
 
-def git_default_repos(projects):
+def git_default_repos(projects_yaml):
     """
     Returns default repos if a default openstack-origin-git value is specified.
     """
     service = service_name()
+    core_project = service
 
     for default, branch in GIT_DEFAULT_BRANCHES.iteritems():
-        if projects == default:
+        if projects_yaml == default:
 
             # add the requirements repo first
             repo = {
@@ -742,34 +740,47 @@ def git_default_repos(projects):
             }
             repos = [repo]
 
-            # neutron and nova charms require some additional repos
-            if service == 'neutron':
-                for svc in ['neutron-fwaas', 'neutron-lbaas', 'neutron-vpnaas']:
+            # NOTE(coreycb): This is a temp work-around until the requirements
+            # repo moves from stable/kilo branch to kilo-eol tag. The core
+            # repos have already done this.
+            if default == 'kilo':
+                branch = 'kilo-eol'
+
+            # neutron-* and nova-* charms require some additional repos
+            if service in ['neutron-api', 'neutron-gateway',
+                           'neutron-openvswitch']:
+                core_project = 'neutron'
+                for project in ['neutron-fwaas', 'neutron-lbaas',
+                                'neutron-vpnaas', 'nova']:
                     repo = {
-                        'name': svc,
-                        'repository': GIT_DEFAULT_REPOS[svc],
+                        'name': project,
+                        'repository': GIT_DEFAULT_REPOS[project],
                         'branch': branch,
                     }
                     repos.append(repo)
-            elif service == 'nova':
+
+            elif service in ['nova-cloud-controller', 'nova-compute']:
+                core_project = 'nova'
                 repo = {
                     'name': 'neutron',
                     'repository': GIT_DEFAULT_REPOS['neutron'],
                     'branch': branch,
                 }
                 repos.append(repo)
+            elif service == 'openstack-dashboard':
+                core_project = 'horizon'
 
-            # finally add the current service's repo
+            # finally add the current service's core project repo
             repo = {
-                'name': service,
-                'repository': GIT_DEFAULT_REPOS[service],
+                'name': core_project,
+                'repository': GIT_DEFAULT_REPOS[core_project],
                 'branch': branch,
             }
             repos.append(repo)
 
             return yaml.dump(dict(repositories=repos))
 
-    return projects
+    return projects_yaml
 
 
 def _git_yaml_load(projects_yaml):
@@ -829,6 +840,7 @@ def git_clone_and_install(projects_yaml, core_project):
         pip_install(p, upgrade=True, proxy=http_proxy,
                     venv=os.path.join(parent_dir, 'venv'))
 
+    constraints = None
     for p in projects['repositories']:
         repo = p['repository']
         branch = p['branch']
@@ -840,10 +852,15 @@ def git_clone_and_install(projects_yaml, core_project):
                                                      parent_dir, http_proxy,
                                                      update_requirements=False)
             requirements_dir = repo_dir
+            constraints = os.path.join(repo_dir, "upper-constraints.txt")
+            # upper-constraints didn't exist until after icehouse
+            if not os.path.isfile(constraints):
+                constraints = None
         else:
             repo_dir = _git_clone_and_install_single(repo, branch, depth,
                                                      parent_dir, http_proxy,
-                                                     update_requirements=True)
+                                                     update_requirements=True,
+                                                     constraints=constraints)
 
     os.environ = old_environ
 
@@ -875,7 +892,7 @@ def _git_ensure_key_exists(key, keys):
 
 
 def _git_clone_and_install_single(repo, branch, depth, parent_dir, http_proxy,
-                                  update_requirements):
+                                  update_requirements, constraints=None):
     """
     Clone and install a single git repository.
     """
@@ -898,9 +915,10 @@ def _git_clone_and_install_single(repo, branch, depth, parent_dir, http_proxy,
 
     juju_log('Installing git repo from dir: {}'.format(repo_dir))
     if http_proxy:
-        pip_install(repo_dir, proxy=http_proxy, venv=venv)
+        pip_install(repo_dir, proxy=http_proxy, venv=venv,
+                    constraints=constraints)
     else:
-        pip_install(repo_dir, venv=venv)
+        pip_install(repo_dir, venv=venv, constraints=constraints)
 
     return repo_dir
 
@@ -980,6 +998,7 @@ def git_generate_systemd_init_files(templates_dir):
     script generation, which is used by the OpenStack packages.
     """
     for f in os.listdir(templates_dir):
+        # Create the init script and systemd unit file from the template
         if f.endswith(".init.in"):
             init_in_file = f
             init_file = f[:-8]
@@ -1005,9 +1024,46 @@ def git_generate_systemd_init_files(templates_dir):
                 os.remove(init_dest)
             if os.path.exists(service_dest):
                 os.remove(service_dest)
-            shutil.move(init_source, init_dest)
-            shutil.move(service_source, service_dest)
+            shutil.copyfile(init_source, init_dest)
+            shutil.copyfile(service_source, service_dest)
             os.chmod(init_dest, 0o755)
+
+    for f in os.listdir(templates_dir):
+        # If there's a service.in file, use it instead of the generated one
+        if f.endswith(".service.in"):
+            service_in_file = f
+            service_file = f[:-3]
+
+            service_in_source = os.path.join(templates_dir, service_in_file)
+            service_source = os.path.join(templates_dir, service_file)
+            service_dest = os.path.join('/lib/systemd/system', service_file)
+
+            shutil.copyfile(service_in_source, service_source)
+
+            if os.path.exists(service_dest):
+                os.remove(service_dest)
+            shutil.copyfile(service_source, service_dest)
+
+    for f in os.listdir(templates_dir):
+        # Generate the systemd unit if there's no existing .service.in
+        if f.endswith(".init.in"):
+            init_in_file = f
+            init_file = f[:-8]
+            service_in_file = "{}.service.in".format(init_file)
+            service_file = "{}.service".format(init_file)
+
+            init_in_source = os.path.join(templates_dir, init_in_file)
+            service_in_source = os.path.join(templates_dir, service_in_file)
+            service_source = os.path.join(templates_dir, service_file)
+            service_dest = os.path.join('/lib/systemd/system', service_file)
+
+            if not os.path.exists(service_in_source):
+                cmd = ['pkgos-gen-systemd-unit', init_in_source]
+                subprocess.check_call(cmd)
+
+                if os.path.exists(service_dest):
+                    os.remove(service_dest)
+                shutil.copyfile(service_source, service_dest)
 
 
 def os_workload_status(configs, required_interfaces, charm_func=None):
