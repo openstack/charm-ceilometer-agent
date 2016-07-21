@@ -145,7 +145,7 @@ SWIFT_CODENAMES = OrderedDict([
     ('mitaka',
         ['2.5.0', '2.6.0', '2.7.0']),
     ('newton',
-        ['2.8.0']),
+        ['2.8.0', '2.9.0']),
 ])
 
 # >= Liberty version->codename mapping
@@ -212,6 +212,7 @@ GIT_DEFAULT_REPOS = {
     'glance': 'git://github.com/openstack/glance',
     'horizon': 'git://github.com/openstack/horizon',
     'keystone': 'git://github.com/openstack/keystone',
+    'networking-hyperv': 'git://github.com/openstack/networking-hyperv',
     'neutron': 'git://github.com/openstack/neutron',
     'neutron-fwaas': 'git://github.com/openstack/neutron-fwaas',
     'neutron-lbaas': 'git://github.com/openstack/neutron-lbaas',
@@ -761,6 +762,13 @@ def git_default_repos(projects_yaml):
             if service in ['neutron-api', 'neutron-gateway',
                            'neutron-openvswitch']:
                 core_project = 'neutron'
+                if service == 'neutron-api':
+                    repo = {
+                        'name': 'networking-hyperv',
+                        'repository': GIT_DEFAULT_REPOS['networking-hyperv'],
+                        'branch': branch,
+                    }
+                    repos.append(repo)
                 for project in ['neutron-fwaas', 'neutron-lbaas',
                                 'neutron-vpnaas', 'nova']:
                     repo = {
