@@ -26,6 +26,7 @@ from charmhelpers.contrib.openstack.utils import (
     make_assess_status_func,
     pause_unit,
     resume_unit,
+    os_application_version_set,
 )
 from charmhelpers.core.hookenv import (
     config,
@@ -42,6 +43,8 @@ CEILOMETER_AGENT_PACKAGES = [
     'python-ceilometer', 'ceilometer-common',
     'ceilometer-agent-compute'
 ]
+
+VERSION_PACKAGE = 'ceilometer-common'
 
 NOVA_CONF = "/etc/nova/nova.conf"
 
@@ -164,6 +167,7 @@ def assess_status(configs):
     @returns None - this function is executed for its side-effect
     """
     assess_status_func(configs)()
+    os_application_version_set(VERSION_PACKAGE)
 
 
 def assess_status_func(configs):
