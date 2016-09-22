@@ -315,7 +315,6 @@ class OpenStackAmuletUtils(AmuletUtils):
                                     keystone_ip=None):
         """Authenticates admin user with the keystone admin endpoint."""
         self.log.debug('Authenticating keystone admin...')
-        unit = keystone_sentry
         if not keystone_ip:
             keystone_ip = keystone_sentry.info['public-address']
 

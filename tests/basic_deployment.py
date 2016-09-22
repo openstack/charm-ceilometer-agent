@@ -45,9 +45,10 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         self._deploy()
 
         u.log.info('Waiting on extended status checks...')
-        exclude_services = ['mysql', 'mongodb']
+        exclude_services = ['mongodb']
         self._auto_wait_for_status(exclude_services=exclude_services)
 
+        self.d.sentry.wait()
         self._initialize_tests()
 
     def _add_services(self):
@@ -59,13 +60,15 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
            """
         # Note: ceilometer-agent becomes a subordinate of nova-compute
         this_service = {'name': 'ceilometer-agent'}
-        other_services = [{'name': 'mysql'},
-                          {'name': 'rabbitmq-server'},
-                          {'name': 'keystone'},
-                          {'name': 'mongodb'},
-                          {'name': 'glance'},  # to satisfy workload status
-                          {'name': 'ceilometer'},
-                          {'name': 'nova-compute'}]
+        other_services = [
+            {'name': 'percona-cluster', 'constraints': {'mem': '3072M'}},
+            {'name': 'rabbitmq-server'},
+            {'name': 'keystone'},
+            {'name': 'mongodb'},
+            {'name': 'glance'},  # to satisfy workload status
+            {'name': 'ceilometer'},
+            {'name': 'nova-compute'}
+        ]
         super(CeiloAgentBasicDeployment, self)._add_services(this_service,
                                                              other_services)
 
@@ -77,14 +80,14 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             'ceilometer:identity-service': 'keystone:identity-service',
             'ceilometer:identity-notifications': 'keystone:'
                                                  'identity-notifications',
-            'keystone:shared-db': 'mysql:shared-db',
+            'keystone:shared-db': 'percona-cluster:shared-db',
             'ceilometer:ceilometer-service': 'ceilometer-agent:'
                                              'ceilometer-service',
             'nova-compute:nova-ceilometer': 'ceilometer-agent:nova-ceilometer',
-            'nova-compute:shared-db': 'mysql:shared-db',
+            'nova-compute:shared-db': 'percona-cluster:shared-db',
             'nova-compute:amqp': 'rabbitmq-server:amqp',
             'glance:identity-service': 'keystone:identity-service',
-            'glance:shared-db': 'mysql:shared-db',
+            'glance:shared-db': 'percona-cluster:shared-db',
             'glance:amqp': 'rabbitmq-server:amqp',
             'nova-compute:image-service': 'glance:image-service'
         }
@@ -92,9 +95,20 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
 
     def _configure_services(self):
         """Configure all of the services."""
-        keystone_config = {'admin-password': 'openstack',
-                           'admin-token': 'ubuntutesting'}
-        configs = {'keystone': keystone_config}
+        keystone_config = {
+            'admin-password': 'openstack',
+            'admin-token': 'ubuntutesting'
+        }
+        pxc_config = {
+            'dataset-size': '25%',
+            'max-connections': 1000,
+            'root-password': 'ChangeMe123',
+            'sst-password': 'ChangeMe123',
+        }
+        configs = {
+            'keystone': keystone_config,
+            'percona-cluster': pxc_config,
+        }
         super(CeiloAgentBasicDeployment, self)._configure_services(configs)
 
     def _get_token(self):
@@ -105,7 +119,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         # Access the sentries for inspecting service units
         self.ceil_sentry = self.d.sentry['ceilometer'][0]
         self.ceil_agent_sentry = self.d.sentry['ceilometer-agent'][0]
-        self.mysql_sentry = self.d.sentry['mysql'][0]
+        self.pxc_sentry = self.d.sentry['percona-cluster'][0]
         self.keystone_sentry = self.d.sentry['keystone'][0]
         self.rabbitmq_sentry = self.d.sentry['rabbitmq-server'][0]
         self.mongodb_sentry = self.d.sentry['mongodb'][0]
@@ -623,23 +637,32 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         # Services which are expected to restart upon config change,
         # and corresponding config files affected by the change
         conf_file = '/etc/ceilometer/ceilometer.conf'
-        services = {
-            'ceilometer-collector': conf_file,
-            'ceilometer-api': conf_file,
-            'ceilometer-agent-notification': conf_file,
-        }
-
-        if self._get_openstack_release() < self.trusty_mitaka:
-            services['ceilometer-alarm-notifier'] = conf_file
-            services['ceilometer-alarm-evaluator'] = conf_file
-
-        if self._get_openstack_release() == self.trusty_liberty or \
-                self._get_openstack_release() >= self.wily_liberty:
-            # Liberty and later
-            services['ceilometer-polling'] = conf_file
+        if self._get_openstack_release() >= self.xenial_newton:
+            services = {
+                'ceilometer-collector - CollectorService(0)': conf_file,
+                'ceilometer-api': conf_file,
+                'ceilometer-polling - AgentManager(0)': conf_file,
+                'ceilometer-agent-notification - NotificationService(0)':
+                    conf_file,
+            }
         else:
-            # Juno and earlier
-            services['ceilometer-agent-central'] = conf_file
+            services = {
+                'ceilometer-collector': conf_file,
+                'ceilometer-api': conf_file,
+                'ceilometer-agent-notification': conf_file,
+            }
+
+            if self._get_openstack_release() < self.trusty_mitaka:
+                services['ceilometer-alarm-notifier'] = conf_file
+                services['ceilometer-alarm-evaluator'] = conf_file
+
+            if self._get_openstack_release() == self.trusty_liberty or \
+                    self._get_openstack_release() >= self.wily_liberty:
+                # Liberty and later
+                services['ceilometer-polling'] = conf_file
+            else:
+                # Juno and earlier
+                services['ceilometer-agent-central'] = conf_file
 
         # Make config change, check for service restarts
         u.log.debug('Making config change on {}...'.format(juju_service))
