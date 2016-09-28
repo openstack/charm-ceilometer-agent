@@ -36,13 +36,19 @@ class CeilometerServiceContext(OSContextGenerator):
         'rabbitmq_user',
         'rabbitmq_password',
         'rabbitmq_virtual_host',
+        'api_version',
         'auth_protocol',
         'auth_host',
         'auth_port',
         'admin_tenant_name',
         'admin_user',
         'admin_password',
-        'metering_secret'
+        'metering_secret',
+        'service_host',
+        'service_protocol',
+        'service_port',
+        'signing_dir',
+        'api_version',
     ]
 
     optional_keys = [

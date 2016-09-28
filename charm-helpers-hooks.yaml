@@ -5,7 +5,7 @@ include:
     - osplatform
     - cli
     - fetch
-    - contrib.openstack
+    - contrib.openstack|inc=*
     - contrib.hahelpers
     - contrib.storage.linux
     - contrib.network.ip
