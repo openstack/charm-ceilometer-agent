@@ -577,10 +577,6 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             'DEFAULT': {
                 'logdir': '/var/log/ceilometer'
             },
-            'database': {
-                'backend': 'sqlalchemy',
-                'connection': 'sqlite:////var/lib/ceilometer/$sqlite_db'
-            }
         }
 
         for section, pairs in expected.iteritems():
