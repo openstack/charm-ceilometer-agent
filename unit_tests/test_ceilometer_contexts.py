@@ -51,6 +51,7 @@ class CeilometerContextsTest(CharmTestCase):
             'service_host': 'keystone',
             'service_port': '80',
             'signing_dir': '/var/lib/ceilometer',
+            'admin_domain_name': 'admin_domain',
             'admin_tenant_name': 'admin',
             'admin_user': 'admin',
             'admin_password': 'password',

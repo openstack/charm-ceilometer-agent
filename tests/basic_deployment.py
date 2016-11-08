@@ -534,14 +534,30 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
                                        ks_rel['service_port'])
             # NOTE(dosaboy): os_ prefix is deprecated and no longer used as
             #                of Mitaka.
+            project_domain_name = 'default'
+            user_domain_name = 'default'
+            if 'api_version' in ks_rel and float(ks_rel['api_version']) > 2:
+                project_domain_name = 'service_domain'
+                user_domain_name = 'service_domain'
             expected['service_credentials'] = {'auth_url': auth_uri,
                                                'project_name': 'services',
                                                'project_domain_name':
-                                               'default',
-                                               'user_domain_name': 'default',
+                                                   project_domain_name,
+                                               'user_domain_name':
+                                                   user_domain_name,
                                                'username': 'ceilometer',
                                                'password':
                                                ks_rel['service_password']}
+            expected['keystone_authtoken'] = {'auth_uri': auth_uri,
+                                              'auth_type': 'password',
+                                              'project_domain_name':
+                                                  project_domain_name,
+                                              'user_domain_name':
+                                                  user_domain_name,
+                                              'project_name': 'services',
+                                              'username': 'ceilometer',
+                                              'password':
+                                                  ks_rel['service_password']}
 
         for section, pairs in expected.iteritems():
             ret = u.validate_config_data(unit, conf, section, pairs)

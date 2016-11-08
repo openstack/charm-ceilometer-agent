@@ -66,6 +66,11 @@ class CeilometerServiceContext(OSContextGenerator):
                 for attr in self.keys:
                     conf[attr] = relation_get(
                         attr, unit=unit, rid=relid)
+                if (conf['api_version'] is not None and
+                        float(conf['api_version']) > 2):
+                    self.keys.append('admin_domain_name')
+                    conf['admin_domain_name'] = relation_get(
+                        'admin_domain_name', unit=unit, rid=relid)
                 if context_complete(conf):
                     for attr in self.optional_keys:
                         conf[attr] = relation_get(attr, unit=unit, rid=relid)
