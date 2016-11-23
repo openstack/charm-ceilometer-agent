@@ -657,7 +657,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
                 services['ceilometer-alarm-evaluator'] = conf_file
 
             if self._get_openstack_release() == self.trusty_liberty or \
-                    self._get_openstack_release() >= self.wily_liberty:
+                    self._get_openstack_release() >= self.xenial_mitaka:
                 # Liberty and later
                 services['ceilometer-polling'] = conf_file
             else:
