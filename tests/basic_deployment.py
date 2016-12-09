@@ -259,6 +259,12 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
 
         u.log.debug('OK')
 
+    def test_130_memcache(self):
+        u.validate_memcache(self.ceil_agent_sentry,
+                            '/etc/ceilometer/ceilometer.conf',
+                            self._get_openstack_release(),
+                            earliest_release=self.trusty_mitaka)
+
     def test_200_ceilometer_identity_relation(self):
         """Verify the ceilometer to keystone identity-service relation data"""
         u.log.debug('Checking ceilometer to keystone identity-service '

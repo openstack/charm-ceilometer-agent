@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from copy import deepcopy
 from charmhelpers.contrib.openstack import (
     context,
     templating,
@@ -27,6 +28,8 @@ from charmhelpers.contrib.openstack.utils import (
     pause_unit,
     resume_unit,
     os_application_version_set,
+    token_cache_pkgs,
+    enable_memcache,
 )
 from charmhelpers.core.hookenv import (
     config,
@@ -47,6 +50,7 @@ CEILOMETER_AGENT_PACKAGES = [
 VERSION_PACKAGE = 'ceilometer-common'
 
 NOVA_CONF = "/etc/nova/nova.conf"
+MEMCACHED_CONF = '/etc/memcached.conf'
 
 NOVA_SETTINGS = {
     "nova": {
@@ -70,11 +74,11 @@ CONFIG_FILES = {
     CEILOMETER_CONF: {
         'hook_contexts': [
             CeilometerServiceContext(ssl_dir=CEILOMETER_CONF_DIR),
-            context.InternalEndpointContext()],
+            context.InternalEndpointContext(),
+            context.MemcacheContext()],
         'services': CEILOMETER_AGENT_SERVICES
-    }
+    },
 }
-
 TEMPLATES = 'templates'
 
 REQUIRED_INTERFACES = {
@@ -99,7 +103,18 @@ def register_configs():
     for conf in CONFIG_FILES:
         configs.register(conf, CONFIG_FILES[conf]['hook_contexts'])
 
+    if enable_memcache(release=release):
+        configs.register(MEMCACHED_CONF, [context.MemcacheContext()])
+
     return configs
+
+
+def get_packages():
+    release = (get_os_codename_package('ceilometer-common', fatal=False) or
+               'icehouse')
+    packages = deepcopy(CEILOMETER_AGENT_PACKAGES)
+    packages.extend(token_cache_pkgs(release=release))
+    return packages
 
 
 def restart_map():
@@ -110,6 +125,8 @@ def restart_map():
     :returns: dict: A dictionary mapping config file to lists of services
                     that should be restarted when file changes.
     '''
+    release = (get_os_codename_package('ceilometer-common', fatal=False) or
+               'icehouse')
     _map = {}
     for f, ctxt in CONFIG_FILES.iteritems():
         svcs = []
@@ -117,6 +134,8 @@ def restart_map():
             svcs.append(svc)
         if svcs:
             _map[f] = svcs
+    if enable_memcache(release=release):
+        _map[MEMCACHED_CONF] = ['memcached']
     return _map
 
 

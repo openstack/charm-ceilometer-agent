@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from mock import call, MagicMock, patch
+from mock import MagicMock, patch
 
 import ceilometer_utils as utils
 
@@ -30,6 +30,8 @@ TO_PATCH = [
     'apt_upgrade',
     'log',
     'os_application_version_set',
+    'token_cache_pkgs',
+    'enable_memcache',
 ]
 
 
@@ -42,18 +44,33 @@ class CeilometerUtilsTest(CharmTestCase):
         super(CeilometerUtilsTest, self).tearDown()
 
     def test_register_configs(self):
+        self.enable_memcache.return_value = False
         configs = utils.register_configs()
-        calls = []
-        for conf in utils.CONFIG_FILES:
-            calls.append(call(conf,
-                              utils.CONFIG_FILES[conf]['hook_contexts']))
-        configs.register.assert_has_calls(calls, any_order=True)
+        registered_configs = [c[0][0] for c in configs.register.call_args_list]
+        self.assertTrue(utils.CEILOMETER_CONF in registered_configs)
+        self.assertFalse(utils.MEMCACHED_CONF in registered_configs)
+
+    def test_register_configs_newton(self):
+        self.enable_memcache.return_value = True
+        configs = utils.register_configs()
+        registered_configs = [c[0][0] for c in configs.register.call_args_list]
+        for config in utils.CONFIG_FILES.keys():
+            self.assertTrue(config in registered_configs)
 
     def test_restart_map(self):
+        self.enable_memcache.return_value = False
         restart_map = utils.restart_map()
         self.assertEquals(restart_map,
                           {'/etc/ceilometer/ceilometer.conf': [
                               'ceilometer-agent-compute']})
+
+    def test_restart_map_newton(self):
+        self.enable_memcache.return_value = True
+        restart_map = utils.restart_map()
+        expect = {
+            '/etc/ceilometer/ceilometer.conf': ['ceilometer-agent-compute'],
+            '/etc/memcached.conf': ['memcached']}
+        self.assertEquals(restart_map, expect)
 
     def test_do_openstack_upgrade(self):
         self.config.side_effect = self.test_config.get

@@ -18,7 +18,8 @@ import os
 os.environ['JUJU_UNIT_NAME'] = 'ceilometer'
 
 with patch('ceilometer_utils.register_configs') as register_configs:
-    import openstack_upgrade
+    with patch('ceilometer_utils.restart_map') as restart_map:
+        import openstack_upgrade
 
 from test_utils import (
     CharmTestCase

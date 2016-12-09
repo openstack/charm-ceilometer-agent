@@ -41,6 +41,7 @@ from ceilometer_utils import (
     NOVA_SETTINGS,
     do_openstack_upgrade,
     assess_status,
+    get_packages,
 )
 from charmhelpers.contrib.charmsupport import nrpe
 
@@ -56,6 +57,14 @@ def install():
     apt_update(fatal=True)
     apt_install(
         filter_installed_packages(CEILOMETER_AGENT_PACKAGES),
+        fatal=True)
+    # Call apt_install a 2nd time to allow packages which are enabled
+    # for specific OpenStack version to be installed . This is because
+    # Openstack version for a subordinate should be derived from the
+    # version of an installed package rather than relying on
+    # openstack-origin which would not be present in a subordinate.
+    apt_install(
+        filter_installed_packages(get_packages()),
         fatal=True)
 
 

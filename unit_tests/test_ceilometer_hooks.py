@@ -39,6 +39,7 @@ TO_PATCH = [
     'do_openstack_upgrade',
     'update_nrpe_config',
     'is_relation_made',
+    'get_packages',
 ]
 
 
@@ -57,13 +58,12 @@ class CeilometerHooksTest(CharmTestCase):
 
     @patch('charmhelpers.core.hookenv.config')
     def test_install_hook(self, mock_config):
-        self.filter_installed_packages.return_value = \
-            hooks.CEILOMETER_AGENT_PACKAGES
+        ceil_pkgs = ['pkg1', 'pkg2']
+        self.filter_installed_packages.return_value = ceil_pkgs
         hooks.hooks.execute(['hooks/install'])
         self.assertTrue(self.configure_installation_source.called)
         self.apt_update.assert_called_with(fatal=True)
-        self.apt_install.assert_called_with(hooks.CEILOMETER_AGENT_PACKAGES,
-                                            fatal=True)
+        self.apt_install.assert_called_with(ceil_pkgs, fatal=True)
 
     @patch('charmhelpers.core.hookenv.config')
     def test_ceilometer_changed(self, mock_config):
