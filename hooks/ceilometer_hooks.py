@@ -73,13 +73,19 @@ def nova_ceilometer_joined():
     relation_set(subordinate_configuration=json.dumps(NOVA_SETTINGS))
 
 
-@hooks.hook("ceilometer-service-relation-changed",
-            "upgrade-charm")
+@hooks.hook("ceilometer-service-relation-changed")
 @restart_on_change(restart_map())
 def ceilometer_changed():
     CONFIGS.write_all()
     if is_relation_made('nrpe-external-master'):
         update_nrpe_config()
+
+
+@hooks.hook("upgrade-charm")
+def upgrade_charm():
+    apt_install(
+        filter_installed_packages(get_packages()),
+        fatal=True)
 
 
 @hooks.hook('config-changed')
