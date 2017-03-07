@@ -61,7 +61,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         # Note: ceilometer-agent becomes a subordinate of nova-compute
         this_service = {'name': 'ceilometer-agent'}
         other_services = [
-            {'name': 'percona-cluster', 'constraints': {'mem': '3072M'}},
+            {'name': 'percona-cluster'},
             {'name': 'rabbitmq-server'},
             {'name': 'keystone'},
             {'name': 'mongodb'},
@@ -100,10 +100,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             'admin-token': 'ubuntutesting'
         }
         pxc_config = {
-            'dataset-size': '25%',
             'max-connections': 1000,
-            'root-password': 'ChangeMe123',
-            'sst-password': 'ChangeMe123',
         }
         configs = {
             'keystone': keystone_config,
@@ -180,7 +177,10 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             'ceilometer-agent-notification',
         ]
 
-        if self._get_openstack_release() < self.trusty_mitaka:
+        if self._get_openstack_release() >= self.xenial_ocata:
+            ceilometer_svcs.append('apache2')
+            ceilometer_svcs.remove('ceilometer-api')
+        elif self._get_openstack_release() < self.trusty_mitaka:
             ceilometer_svcs.append('ceilometer-alarm-evaluator')
             ceilometer_svcs.append('ceilometer-alarm-notifier')
 
@@ -659,7 +659,15 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         # Services which are expected to restart upon config change,
         # and corresponding config files affected by the change
         conf_file = '/etc/ceilometer/ceilometer.conf'
-        if self._get_openstack_release() >= self.xenial_newton:
+        if self._get_openstack_release() >= self.xenial_ocata:
+            services = {
+                'ceilometer-collector: CollectorService worker(0)': conf_file,
+                'apache2': conf_file,
+                'ceilometer-polling: AgentManager worker(0)': conf_file,
+                'ceilometer-agent-notification: NotificationService worker(0)':
+                    conf_file,
+            }
+        elif self._get_openstack_release() >= self.xenial_newton:
             services = {
                 'ceilometer-collector - CollectorService(0)': conf_file,
                 'ceilometer-api': conf_file,
@@ -678,8 +686,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
                 services['ceilometer-alarm-notifier'] = conf_file
                 services['ceilometer-alarm-evaluator'] = conf_file
 
-            if self._get_openstack_release() == self.trusty_liberty or \
-                    self._get_openstack_release() >= self.xenial_mitaka:
+            if self._get_openstack_release() >= self.trusty_liberty:
                 # Liberty and later
                 services['ceilometer-polling'] = conf_file
             else:

@@ -20,6 +20,5 @@ from basic_deployment import CeiloAgentBasicDeployment
 
 if __name__ == '__main__':
     deployment = CeiloAgentBasicDeployment(series='xenial',
-                                           openstack='cloud:xenial-ocata',
-                                           source='cloud:xenial-updates/ocata')
+                                           openstack='cloud:xenial-ocata')
     deployment.run_tests()
