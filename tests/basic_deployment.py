@@ -12,10 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import subprocess
 import amulet
-import json
-import time
 import ceilometerclient.v2.client as ceilo_client
 
 from charmhelpers.contrib.openstack.amulet.deployment import (
@@ -64,7 +61,8 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             {'name': 'percona-cluster'},
             {'name': 'rabbitmq-server'},
             {'name': 'keystone'},
-            {'name': 'mongodb'},
+            {'name': 'mongodb',
+             'location': 'cs:~1chb1n/{}/mongodb'.format(self.series)},
             {'name': 'glance'},  # to satisfy workload status
             {'name': 'ceilometer'},
             {'name': 'nova-compute'}
@@ -138,32 +136,6 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         os_token = self.keystone.auth_token
         self.log.debug('Instantiating ceilometer client...')
         self.ceil = ceilo_client.Client(endpoint=ep, token=os_token)
-
-    def _run_action(self, unit_id, action, *args):
-        command = ["juju", "action", "do", "--format=json", unit_id, action]
-        command.extend(args)
-        print("Running command: %s\n" % " ".join(command))
-        output = subprocess.check_output(command)
-        output_json = output.decode(encoding="UTF-8")
-        data = json.loads(output_json)
-        action_id = data[u'Action queued with id']
-        return action_id
-
-    def _wait_on_action(self, action_id):
-        command = ["juju", "action", "fetch", "--format=json", action_id]
-        while True:
-            try:
-                output = subprocess.check_output(command)
-            except Exception as e:
-                print(e)
-                return False
-            output_json = output.decode(encoding="UTF-8")
-            data = json.loads(output_json)
-            if data[u"status"] == "completed":
-                return True
-            elif data[u"status"] == "failed":
-                return False
-            time.sleep(2)
 
     def test_100_services(self):
         """Verify the expected services are running on the corresponding
@@ -724,16 +696,16 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         assert u.status_get(unit)[0] == "active"
 
         u.log.debug('Running pause action on {}'.format(unit_name))
-        action_id = self._run_action(unit_name, "pause")
+        action_id = u.run_action(unit, "pause")
         u.log.debug('Waiting on action {}'.format(action_id))
-        assert self._wait_on_action(action_id), "Pause action failed."
+        assert u.wait_on_action(action_id), "Pause action failed."
         u.log.debug('Checking for maintenance status on {}'.format(unit_name))
         assert u.status_get(unit)[0] == "maintenance"
 
         u.log.debug('Running resume action on {}'.format(unit_name))
-        action_id = self._run_action(unit_name, "resume")
+        action_id = u.run_action(unit, "resume")
         u.log.debug('Waiting on action {}'.format(action_id))
-        assert self._wait_on_action(action_id), "Resume action failed."
+        assert u.wait_on_action(action_id), "Resume action failed."
         u.log.debug('Checking for active status on {}'.format(unit_name))
         assert u.status_get(unit)[0] == "active"
         u.log.debug('OK')

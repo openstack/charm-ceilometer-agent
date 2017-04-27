@@ -4,3 +4,4 @@ include:
     - contrib.amulet
     - contrib.openstack.amulet
     - core
+    - osplatform

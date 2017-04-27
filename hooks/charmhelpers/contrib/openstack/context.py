@@ -59,6 +59,8 @@ from charmhelpers.core.host import (
     write_file,
     pwgen,
     lsb_release,
+    CompareHostReleases,
+    is_container,
 )
 from charmhelpers.contrib.hahelpers.cluster import (
     determine_apache_port,
@@ -87,6 +89,7 @@ from charmhelpers.contrib.network.ip import (
     format_ipv6_addr,
     is_address_in_network,
     is_bridge_member,
+    is_ipv6_disabled,
 )
 from charmhelpers.contrib.openstack.utils import (
     config_flags_parser,
@@ -108,6 +111,7 @@ except ImportError:
 
 CA_CERT_PATH = '/usr/local/share/ca-certificates/keystone_juju_ca_cert.crt'
 ADDRESS_TYPES = ['admin', 'internal', 'public']
+HAPROXY_RUN_DIR = '/var/run/haproxy/'
 
 
 def ensure_packages(packages):
@@ -155,7 +159,8 @@ class OSContextGenerator(object):
 
         if self.missing_data:
             self.complete = False
-            log('Missing required data: %s' % ' '.join(self.missing_data), level=INFO)
+            log('Missing required data: %s' % ' '.join(self.missing_data),
+                level=INFO)
         else:
             self.complete = True
         return self.complete
@@ -213,8 +218,9 @@ class SharedDBContext(OSContextGenerator):
                 hostname_key = "{}_hostname".format(self.relation_prefix)
             else:
                 hostname_key = "hostname"
-            access_hostname = get_address_in_network(access_network,
-                                                     unit_get('private-address'))
+            access_hostname = get_address_in_network(
+                access_network,
+                unit_get('private-address'))
             set_hostname = relation_get(attribute=hostname_key,
                                         unit=local_unit())
             if set_hostname != access_hostname:
@@ -308,7 +314,10 @@ def db_ssl(rdata, ctxt, ssl_dir):
 
 class IdentityServiceContext(OSContextGenerator):
 
-    def __init__(self, service=None, service_user=None, rel_name='identity-service'):
+    def __init__(self,
+                 service=None,
+                 service_user=None,
+                 rel_name='identity-service'):
         self.service = service
         self.service_user = service_user
         self.rel_name = rel_name
@@ -457,19 +466,17 @@ class AMQPContext(OSContextGenerator):
                     host = format_ipv6_addr(host) or host
                     rabbitmq_hosts.append(host)
 
-                ctxt['rabbitmq_hosts'] = ','.join(sorted(rabbitmq_hosts))
+                rabbitmq_hosts = sorted(rabbitmq_hosts)
+                ctxt['rabbitmq_hosts'] = ','.join(rabbitmq_hosts)
                 transport_hosts = rabbitmq_hosts
 
             if transport_hosts:
-                transport_url_hosts = ''
-                for host in transport_hosts:
-                    if transport_url_hosts:
-                        format_string = ",{}:{}@{}:{}"
-                    else:
-                        format_string = "{}:{}@{}:{}"
-                    transport_url_hosts += format_string.format(
-                        ctxt['rabbitmq_user'], ctxt['rabbitmq_password'],
-                        host, rabbitmq_port)
+                transport_url_hosts = ','.join([
+                    "{}:{}@{}:{}".format(ctxt['rabbitmq_user'],
+                                         ctxt['rabbitmq_password'],
+                                         host_,
+                                         rabbitmq_port)
+                    for host_ in transport_hosts])
                 ctxt['transport_url'] = "rabbit://{}/{}".format(
                     transport_url_hosts, vhost)
 
@@ -530,6 +537,8 @@ class HAProxyContext(OSContextGenerator):
     """Provides half a context for the haproxy template, which describes
     all peers to be included in the cluster.  Each charm needs to include
     its own context generator that describes the port mapping.
+
+    :side effect: mkdir is called on HAPROXY_RUN_DIR
     """
     interfaces = ['cluster']
 
@@ -537,6 +546,8 @@ class HAProxyContext(OSContextGenerator):
         self.singlenode_mode = singlenode_mode
 
     def __call__(self):
+        if not os.path.isdir(HAPROXY_RUN_DIR):
+            mkdir(path=HAPROXY_RUN_DIR)
         if not relation_ids('cluster') and not self.singlenode_mode:
             return {}
 
@@ -1217,22 +1228,54 @@ class BindHostContext(OSContextGenerator):
             return {'bind_host': '0.0.0.0'}
 
 
+MAX_DEFAULT_WORKERS = 4
+DEFAULT_MULTIPLIER = 2
+
+
+def _calculate_workers():
+    '''
+    Determine the number of worker processes based on the CPU
+    count of the unit containing the application.
+
+    Workers will be limited to MAX_DEFAULT_WORKERS in
+    container environments where no worker-multipler configuration
+    option been set.
+
+    @returns int: number of worker processes to use
+    '''
+    multiplier = config('worker-multiplier') or DEFAULT_MULTIPLIER
+    count = int(_num_cpus() * multiplier)
+    if multiplier > 0 and count == 0:
+        count = 1
+
+    if config('worker-multiplier') is None and is_container():
+        # NOTE(jamespage): Limit unconfigured worker-multiplier
+        #                  to MAX_DEFAULT_WORKERS to avoid insane
+        #                  worker configuration in LXD containers
+        #                  on large servers
+        # Reference: https://pad.lv/1665270
+        count = min(count, MAX_DEFAULT_WORKERS)
+
+    return count
+
+
+def _num_cpus():
+    '''
+    Compatibility wrapper for calculating the number of CPU's
+    a unit has.
+
+    @returns: int: number of CPU cores detected
+    '''
+    try:
+        return psutil.cpu_count()
+    except AttributeError:
+        return psutil.NUM_CPUS
+
+
 class WorkerConfigContext(OSContextGenerator):
 
-    @property
-    def num_cpus(self):
-        # NOTE: use cpu_count if present (16.04 support)
-        if hasattr(psutil, 'cpu_count'):
-            return psutil.cpu_count()
-        else:
-            return psutil.NUM_CPUS
-
     def __call__(self):
-        multiplier = config('worker-multiplier') or 0
-        count = int(self.num_cpus * multiplier)
-        if multiplier > 0 and count == 0:
-            count = 1
-        ctxt = {"workers": count}
+        ctxt = {"workers": _calculate_workers()}
         return ctxt
 
 
@@ -1240,7 +1283,7 @@ class WSGIWorkerConfigContext(WorkerConfigContext):
 
     def __init__(self, name=None, script=None, admin_script=None,
                  public_script=None, process_weight=1.00,
-                 admin_process_weight=0.75, public_process_weight=0.25):
+                 admin_process_weight=0.25, public_process_weight=0.75):
         self.service_name = name
         self.user = name
         self.group = name
@@ -1252,8 +1295,7 @@ class WSGIWorkerConfigContext(WorkerConfigContext):
         self.public_process_weight = public_process_weight
 
     def __call__(self):
-        multiplier = config('worker-multiplier') or 1
-        total_processes = self.num_cpus * multiplier
+        total_processes = _calculate_workers()
         ctxt = {
             "service_name": self.service_name,
             "user": self.user,
@@ -1584,7 +1626,7 @@ class MemcacheContext(OSContextGenerator):
     """Memcache context
 
     This context provides options for configuring a local memcache client and
-    server
+    server for both IPv4 and IPv6
     """
 
     def __init__(self, package=None):
@@ -1601,13 +1643,25 @@ class MemcacheContext(OSContextGenerator):
         if ctxt['use_memcache']:
             # Trusty version of memcached does not support ::1 as a listen
             # address so use host file entry instead
-            if lsb_release()['DISTRIB_CODENAME'].lower() > 'trusty':
-                ctxt['memcache_server'] = '::1'
+            release = lsb_release()['DISTRIB_CODENAME'].lower()
+            if is_ipv6_disabled():
+                if CompareHostReleases(release) > 'trusty':
+                    ctxt['memcache_server'] = '127.0.0.1'
+                else:
+                    ctxt['memcache_server'] = 'localhost'
+                ctxt['memcache_server_formatted'] = '127.0.0.1'
+                ctxt['memcache_port'] = '11211'
+                ctxt['memcache_url'] = '{}:{}'.format(
+                    ctxt['memcache_server_formatted'],
+                    ctxt['memcache_port'])
             else:
-                ctxt['memcache_server'] = 'ip6-localhost'
-            ctxt['memcache_server_formatted'] = '[::1]'
-            ctxt['memcache_port'] = '11211'
-            ctxt['memcache_url'] = 'inet6:{}:{}'.format(
-                ctxt['memcache_server_formatted'],
-                ctxt['memcache_port'])
+                if CompareHostReleases(release) > 'trusty':
+                    ctxt['memcache_server'] = '::1'
+                else:
+                    ctxt['memcache_server'] = 'ip6-localhost'
+                ctxt['memcache_server_formatted'] = '[::1]'
+                ctxt['memcache_port'] = '11211'
+                ctxt['memcache_url'] = 'inet6:{}:{}'.format(
+                    ctxt['memcache_server_formatted'],
+                    ctxt['memcache_port'])
         return ctxt
