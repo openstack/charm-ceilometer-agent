@@ -243,7 +243,7 @@ def is_ipv6_disabled():
     try:
         result = subprocess.check_output(
             ['sysctl', 'net.ipv6.conf.all.disable_ipv6'],
-            stderr=subprocess.STDOUT)
+            stderr=subprocess.STDOUT).decode('UTF-8')
         return "net.ipv6.conf.all.disable_ipv6 = 1" in result
     except subprocess.CalledProcessError:
         return True

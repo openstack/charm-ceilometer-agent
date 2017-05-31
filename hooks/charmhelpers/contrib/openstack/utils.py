@@ -26,10 +26,11 @@ import functools
 import shutil
 
 import six
-import tempfile
 import traceback
 import uuid
 import yaml
+
+from charmhelpers import deprecate
 
 from charmhelpers.contrib.network import ip
 
@@ -41,7 +42,6 @@ from charmhelpers.core.hookenv import (
     config,
     log as juju_log,
     charm_dir,
-    DEBUG,
     INFO,
     ERROR,
     related_units,
@@ -82,9 +82,12 @@ from charmhelpers.core.host import (
     restart_on_change_helper,
 )
 from charmhelpers.fetch import (
-    apt_install,
     apt_cache,
     install_remote,
+    import_key as fetch_import_key,
+    add_source as fetch_add_source,
+    SourceConfigError,
+    GPGKeyError,
     get_upstream_version
 )
 from charmhelpers.contrib.storage.linux.utils import is_block_device, zap_disk
@@ -469,13 +472,14 @@ def get_os_version_package(pkg, fatal=True):
     # error_out(e)
 
 
-os_rel = None
+# Module local cache variable for the os_release.
+_os_rel = None
 
 
 def reset_os_release():
     '''Unset the cached os_release version'''
-    global os_rel
-    os_rel = None
+    global _os_rel
+    _os_rel = None
 
 
 def os_release(package, base='essex', reset_cache=False):
@@ -489,150 +493,77 @@ def os_release(package, base='essex', reset_cache=False):
     the installation source, the earliest release supported by the charm should
     be returned.
     '''
-    global os_rel
+    global _os_rel
     if reset_cache:
         reset_os_release()
-    if os_rel:
-        return os_rel
-    os_rel = (git_os_codename_install_source(config('openstack-origin-git')) or
-              get_os_codename_package(package, fatal=False) or
-              get_os_codename_install_source(config('openstack-origin')) or
-              base)
-    return os_rel
+    if _os_rel:
+        return _os_rel
+    _os_rel = (
+        git_os_codename_install_source(config('openstack-origin-git')) or
+        get_os_codename_package(package, fatal=False) or
+        get_os_codename_install_source(config('openstack-origin')) or
+        base)
+    return _os_rel
 
 
+@deprecate("moved to charmhelpers.fetch.import_key()", "2017-07", log=juju_log)
 def import_key(keyid):
-    key = keyid.strip()
-    if (key.startswith('-----BEGIN PGP PUBLIC KEY BLOCK-----') and
-            key.endswith('-----END PGP PUBLIC KEY BLOCK-----')):
-        juju_log("PGP key found (looks like ASCII Armor format)", level=DEBUG)
-        juju_log("Importing ASCII Armor PGP key", level=DEBUG)
-        with tempfile.NamedTemporaryFile() as keyfile:
-            with open(keyfile.name, 'w') as fd:
-                fd.write(key)
-                fd.write("\n")
+    """Import a key, either ASCII armored, or a GPG key id.
 
-            cmd = ['apt-key', 'add', keyfile.name]
-            try:
-                subprocess.check_call(cmd)
-            except subprocess.CalledProcessError:
-                error_out("Error importing PGP key '%s'" % key)
-    else:
-        juju_log("PGP key found (looks like Radix64 format)", level=DEBUG)
-        juju_log("Importing PGP key from keyserver", level=DEBUG)
-        cmd = ['apt-key', 'adv', '--keyserver',
-               'hkp://keyserver.ubuntu.com:80', '--recv-keys', key]
-        try:
-            subprocess.check_call(cmd)
-        except subprocess.CalledProcessError:
-            error_out("Error importing PGP key '%s'" % key)
+    @param keyid: the key in ASCII armor format, or a GPG key id.
+    @raises SystemExit() via sys.exit() on failure.
+    """
+    try:
+        return fetch_import_key(keyid)
+    except GPGKeyError as e:
+        error_out("Could not import key: {}".format(str(e)))
 
 
-def get_source_and_pgp_key(input):
-    """Look for a pgp key ID or ascii-armor key in the given input."""
-    index = input.strip()
-    index = input.rfind('|')
-    if index < 0:
-        return input, None
+def get_source_and_pgp_key(source_and_key):
+    """Look for a pgp key ID or ascii-armor key in the given input.
 
-    key = input[index + 1:].strip('|')
-    source = input[:index]
-    return source, key
+    :param source_and_key: Sting, "source_spec|keyid" where '|keyid' is
+        optional.
+    :returns (source_spec, key_id OR None) as a tuple.  Returns None for key_id
+        if there was no '|' in the source_and_key string.
+    """
+    try:
+        source, key = source_and_key.split('|', 2)
+        return source, key or None
+    except ValueError:
+        return source_and_key, None
 
 
-def configure_installation_source(rel):
-    '''Configure apt installation source.'''
-    if rel == 'distro':
-        return
-    elif rel == 'distro-proposed':
-        ubuntu_rel = lsb_release()['DISTRIB_CODENAME']
-        with open('/etc/apt/sources.list.d/juju_deb.list', 'w') as f:
-            f.write(DISTRO_PROPOSED % ubuntu_rel)
-    elif rel[:4] == "ppa:":
-        src, key = get_source_and_pgp_key(rel)
-        if key:
-            import_key(key)
+@deprecate("use charmhelpers.fetch.add_source() instead.",
+           "2017-07", log=juju_log)
+def configure_installation_source(source_plus_key):
+    """Configure an installation source.
 
-        subprocess.check_call(["add-apt-repository", "-y", src])
-    elif rel[:3] == "deb":
-        src, key = get_source_and_pgp_key(rel)
-        if key:
-            import_key(key)
+    The functionality is provided by charmhelpers.fetch.add_source()
+    The difference between the two functions is that add_source() signature
+    requires the key to be passed directly, whereas this function passes an
+    optional key by appending '|<key>' to the end of the source specificiation
+    'source'.
 
-        with open('/etc/apt/sources.list.d/juju_deb.list', 'w') as f:
-            f.write(src)
-    elif rel[:6] == 'cloud:':
-        ubuntu_rel = lsb_release()['DISTRIB_CODENAME']
-        rel = rel.split(':')[1]
-        u_rel = rel.split('-')[0]
-        ca_rel = rel.split('-')[1]
+    Another difference from add_source() is that the function calls sys.exit(1)
+    if the configuration fails, whereas add_source() raises
+    SourceConfigurationError().  Another difference, is that add_source()
+    silently fails (with a juju_log command) if there is no matching source to
+    configure, whereas this function fails with a sys.exit(1)
 
-        if u_rel != ubuntu_rel:
-            e = 'Cannot install from Cloud Archive pocket %s on this Ubuntu '\
-                'version (%s)' % (ca_rel, ubuntu_rel)
-            error_out(e)
+    :param source: String_plus_key -- see above for details.
 
-        if 'staging' in ca_rel:
-            # staging is just a regular PPA.
-            os_rel = ca_rel.split('/')[0]
-            ppa = 'ppa:ubuntu-cloud-archive/%s-staging' % os_rel
-            cmd = 'add-apt-repository -y %s' % ppa
-            subprocess.check_call(cmd.split(' '))
-            return
+    Note that the behaviour on error is to log the error to the juju log and
+    then call sys.exit(1).
+    """
+    # extract the key if there is one, denoted by a '|' in the rel
+    source, key = get_source_and_pgp_key(source_plus_key)
 
-        # map charm config options to actual archive pockets.
-        pockets = {
-            'folsom': 'precise-updates/folsom',
-            'folsom/updates': 'precise-updates/folsom',
-            'folsom/proposed': 'precise-proposed/folsom',
-            'grizzly': 'precise-updates/grizzly',
-            'grizzly/updates': 'precise-updates/grizzly',
-            'grizzly/proposed': 'precise-proposed/grizzly',
-            'havana': 'precise-updates/havana',
-            'havana/updates': 'precise-updates/havana',
-            'havana/proposed': 'precise-proposed/havana',
-            'icehouse': 'precise-updates/icehouse',
-            'icehouse/updates': 'precise-updates/icehouse',
-            'icehouse/proposed': 'precise-proposed/icehouse',
-            'juno': 'trusty-updates/juno',
-            'juno/updates': 'trusty-updates/juno',
-            'juno/proposed': 'trusty-proposed/juno',
-            'kilo': 'trusty-updates/kilo',
-            'kilo/updates': 'trusty-updates/kilo',
-            'kilo/proposed': 'trusty-proposed/kilo',
-            'liberty': 'trusty-updates/liberty',
-            'liberty/updates': 'trusty-updates/liberty',
-            'liberty/proposed': 'trusty-proposed/liberty',
-            'mitaka': 'trusty-updates/mitaka',
-            'mitaka/updates': 'trusty-updates/mitaka',
-            'mitaka/proposed': 'trusty-proposed/mitaka',
-            'newton': 'xenial-updates/newton',
-            'newton/updates': 'xenial-updates/newton',
-            'newton/proposed': 'xenial-proposed/newton',
-            'ocata': 'xenial-updates/ocata',
-            'ocata/updates': 'xenial-updates/ocata',
-            'ocata/proposed': 'xenial-proposed/ocata',
-            'pike': 'xenial-updates/pike',
-            'pike/updates': 'xenial-updates/pike',
-            'pike/proposed': 'xenial-proposed/pike',
-            'queens': 'xenial-updates/queens',
-            'queens/updates': 'xenial-updates/queens',
-            'queens/proposed': 'xenial-proposed/queens',
-        }
-
-        try:
-            pocket = pockets[ca_rel]
-        except KeyError:
-            e = 'Invalid Cloud Archive release specified: %s' % rel
-            error_out(e)
-
-        src = "deb %s %s main" % (CLOUD_ARCHIVE_URL, pocket)
-        apt_install('ubuntu-cloud-keyring', fatal=True)
-
-        with open('/etc/apt/sources.list.d/cloud-archive.list', 'w') as f:
-            f.write(src)
-    else:
-        error_out("Invalid openstack-release specified: %s" % rel)
+    # handle the ordinary sources via add_source
+    try:
+        fetch_add_source(source, key, fail_invalid=True)
+    except SourceConfigError as se:
+        error_out(str(se))
 
 
 def config_value_changed(option):
@@ -677,7 +608,6 @@ def openstack_upgrade_available(package):
 
     :returns: bool:    : Returns True if configured installation source offers
                          a newer version of package.
-
     """
 
     import apt_pkg as apt
