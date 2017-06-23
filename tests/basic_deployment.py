@@ -608,6 +608,77 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
 
         u.log.debug('OK')
 
+    def test_303_nova_ceilometer_config_check_endpoint(self):
+        """Verify endpoint option on the
+        nova-compute (ceilometer-agent) unit."""
+        u.log.debug('Checking nova ceilometer config file...')
+        sentry = self.ceil_agent_sentry
+        conf = '/etc/ceilometer/ceilometer.conf'
+
+        expected_default = {
+            'DEFAULT': {
+                'logdir': '/var/log/ceilometer'
+            },
+        }
+
+        expected_alternate = {
+            'DEFAULT': {
+                'logdir': '/var/log/ceilometer'
+            },
+            'service_credentials': {
+                'interface': 'internalURL'
+            },
+        }
+
+        juju_service = 'ceilometer-agent'
+        service = 'ceilometer-polling'
+        option = 'use-internal-endpoints'
+        set_default = {option: 'False'}
+        set_alternate = {option: 'True'}
+
+        for section, pairs in expected_default.iteritems():
+            ret = u.validate_config_data(sentry, conf, section, pairs)
+            if ret:
+                message = "ceilometer config error: {}".format(ret)
+                amulet.raise_status(amulet.FAIL, msg=message)
+
+        sleep_time = 40
+        mtime = u.get_sentry_time(sentry)
+        self.d.configure(juju_service, set_alternate)
+
+        if not u.service_restarted_since(sentry, mtime, service,
+                                         sleep_time=sleep_time,
+                                         retry_count=4, retry_sleep_time=20):
+            self.d.configure(juju_service, set_default)
+            msg = "service {} didn't restart after config change".format(
+                service)
+            amulet.raise_status(amulet.FAIL, msg=msg)
+
+        for section, pairs in expected_alternate.iteritems():
+            ret = u.validate_config_data(sentry, conf, section, pairs)
+            if ret:
+                message = "ceilometer config error: {}".format(ret)
+                amulet.raise_status(amulet.FAIL, msg=message)
+
+        mtime = u.get_sentry_time(sentry)
+        self.d.configure(juju_service, set_default)
+
+        if not u.service_restarted_since(sentry, mtime, service,
+                                         sleep_time=sleep_time,
+                                         retry_count=4, retry_sleep_time=20):
+            self.d.configure(juju_service, set_default)
+            msg = "service {} didn't restart after config change".format(
+                service)
+            amulet.raise_status(amulet.FAIL, msg=msg)
+
+        for section, pairs in expected_default.iteritems():
+            ret = u.validate_config_data(sentry, conf, section, pairs)
+            if ret:
+                message = "ceilometer config error: {}".format(ret)
+                amulet.raise_status(amulet.FAIL, msg=message)
+
+        u.log.debug('OK')
+
     def test_400_api_connection(self):
         """Simple api calls to check service is up and responding"""
         u.log.debug('Checking api functionality...')
