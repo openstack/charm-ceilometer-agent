@@ -51,6 +51,7 @@ from charmhelpers.core.hookenv import (
     status_set,
     hook_name,
     application_version_set,
+    cached,
 )
 
 from charmhelpers.core.strutils import BasicStringComparator
@@ -90,6 +91,13 @@ from charmhelpers.fetch import (
     GPGKeyError,
     get_upstream_version
 )
+
+from charmhelpers.fetch.snap import (
+    snap_install,
+    snap_refresh,
+    SNAP_CHANNELS,
+)
+
 from charmhelpers.contrib.storage.linux.utils import is_block_device, zap_disk
 from charmhelpers.contrib.storage.linux.loopback import ensure_loopback_device
 from charmhelpers.contrib.openstack.exceptions import OSContextError
@@ -327,8 +335,10 @@ def get_os_codename_install_source(src):
         return ca_rel
 
     # Best guess match based on deb string provided
-    if src.startswith('deb') or src.startswith('ppa'):
-        for k, v in six.iteritems(OPENSTACK_CODENAMES):
+    if (src.startswith('deb') or
+            src.startswith('ppa') or
+            src.startswith('snap')):
+        for v in OPENSTACK_CODENAMES.values():
             if v in src:
                 return v
 
@@ -397,6 +407,19 @@ def get_swift_codename(version):
 
 def get_os_codename_package(package, fatal=True):
     '''Derive OpenStack release codename from an installed package.'''
+
+    if snap_install_requested():
+        cmd = ['snap', 'list', package]
+        try:
+            out = subprocess.check_output(cmd)
+        except subprocess.CalledProcessError as e:
+            return None
+        lines = out.split('\n')
+        for line in lines:
+            if package in line:
+                # Second item in list is Version
+                return line.split()[1]
+
     import apt_pkg as apt
 
     cache = apt_cache()
@@ -613,6 +636,9 @@ def openstack_upgrade_available(package):
     import apt_pkg as apt
     src = config('openstack-origin')
     cur_vers = get_os_version_package(package)
+    if not cur_vers:
+        # The package has not been installed yet do not attempt upgrade
+        return False
     if "swift" in package:
         codename = get_os_codename_install_source(src)
         avail_vers = get_os_version_codename_swift(codename)
@@ -1863,6 +1889,30 @@ def pausable_restart_on_change(restart_map, stopstart=False,
     return wrap
 
 
+def ordered(orderme):
+    """Converts the provided dictionary into a collections.OrderedDict.
+
+    The items in the returned OrderedDict will be inserted based on the
+    natural sort order of the keys. Nested dictionaries will also be sorted
+    in order to ensure fully predictable ordering.
+
+    :param orderme: the dict to order
+    :return: collections.OrderedDict
+    :raises: ValueError: if `orderme` isn't a dict instance.
+    """
+    if not isinstance(orderme, dict):
+        raise ValueError('argument must be a dict type')
+
+    result = OrderedDict()
+    for k, v in sorted(six.iteritems(orderme), key=lambda x: x[0]):
+        if isinstance(v, dict):
+            result[k] = ordered(v)
+        else:
+            result[k] = v
+
+    return result
+
+
 def config_flags_parser(config_flags):
     """Parses config flags string into dict.
 
@@ -1874,15 +1924,13 @@ def config_flags_parser(config_flags):
          example, a string in the format of 'key1=value1, key2=value2' will
          return a dict of:
 
-             {'key1': 'value1',
-              'key2': 'value2'}.
+             {'key1': 'value1', 'key2': 'value2'}.
 
       2. A string in the above format, but supporting a comma-delimited list
          of values for the same key. For example, a string in the format of
          'key1=value1, key2=value3,value4,value5' will return a dict of:
 
-             {'key1', 'value1',
-              'key2', 'value2,value3,value4'}
+             {'key1': 'value1', 'key2': 'value2,value3,value4'}
 
       3. A string containing a colon character (:) prior to an equal
          character (=) will be treated as yaml and parsed as such. This can be
@@ -1902,7 +1950,7 @@ def config_flags_parser(config_flags):
     equals = config_flags.find('=')
     if colon > 0:
         if colon < equals or equals < 0:
-            return yaml.safe_load(config_flags)
+            return ordered(yaml.safe_load(config_flags))
 
     if config_flags.find('==') >= 0:
         juju_log("config_flags is not in expected format (key=value)",
@@ -1915,7 +1963,7 @@ def config_flags_parser(config_flags):
     # split on '='.
     split = config_flags.strip(' =').split('=')
     limit = len(split)
-    flags = {}
+    flags = OrderedDict()
     for i in range(0, limit - 1):
         current = split[i]
         next = split[i + 1]
@@ -1982,3 +2030,84 @@ def token_cache_pkgs(source=None, release=None):
     if enable_memcache(source=source, release=release):
         packages.extend(['memcached', 'python-memcache'])
     return packages
+
+
+def update_json_file(filename, items):
+    """Updates the json `filename` with a given dict.
+    :param filename: json filename (i.e.: /etc/glance/policy.json)
+    :param items: dict of items to update
+    """
+    with open(filename) as fd:
+        policy = json.load(fd)
+    policy.update(items)
+    with open(filename, "w") as fd:
+        fd.write(json.dumps(policy, indent=4))
+
+
+@cached
+def snap_install_requested():
+    """ Determine if installing from snaps
+
+    If openstack-origin is of the form snap:channel-series-release
+    and channel is in SNAPS_CHANNELS return True.
+    """
+    origin = config('openstack-origin')
+    if not origin.startswith('snap:'):
+        return False
+
+    _src = origin[5:]
+    channel, series, release = _src.split('-')
+    if channel.lower() in SNAP_CHANNELS:
+        return True
+    return False
+
+
+def get_snaps_install_info_from_origin(snaps, src, mode='classic'):
+    """Generate a dictionary of snap install information from origin
+
+    @param snaps: List of snaps
+    @param src: String of openstack-origin or source of the form
+        snap:channel-series-track
+    @param mode: String classic, devmode or jailmode
+    @returns: Dictionary of snaps with channels and modes
+    """
+
+    if not src.startswith('snap:'):
+        juju_log("Snap source is not a snap origin", 'WARN')
+        return {}
+
+    _src = src[5:]
+    _channel, _series, _release = _src.split('-')
+    channel = '--channel={}/{}'.format(_release, _channel)
+
+    return {snap: {'channel': channel, 'mode': mode}
+            for snap in snaps}
+
+
+def install_os_snaps(snaps, refresh=False):
+    """Install OpenStack snaps from channel and with mode
+
+    @param snaps: Dictionary of snaps with channels and modes of the form:
+        {'snap_name': {'channel': 'snap_channel',
+                       'mode': 'snap_mode'}}
+        Where channel a snapstore channel and mode is --classic, --devmode or
+        --jailmode.
+    @param post_snap_install: Callback function to run after snaps have been
+    installed
+    """
+
+    def _ensure_flag(flag):
+        if flag.startswith('--'):
+            return flag
+        return '--{}'.format(flag)
+
+    if refresh:
+        for snap in snaps.keys():
+            snap_refresh(snap,
+                         _ensure_flag(snaps[snap]['channel']),
+                         _ensure_flag(snaps[snap]['mode']))
+    else:
+        for snap in snaps.keys():
+            snap_install(snap,
+                         _ensure_flag(snaps[snap]['channel']),
+                         _ensure_flag(snaps[snap]['mode']))

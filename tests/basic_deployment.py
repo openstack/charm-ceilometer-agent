@@ -132,7 +132,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
 
         # Authenticate admin with ceilometer endpoint
         ep = self.keystone.service_catalog.url_for(service_type='metering',
-                                                   endpoint_type='publicURL')
+                                                   interface='publicURL')
         os_token = self.keystone.auth_token
         self.log.debug('Instantiating ceilometer client...')
         self.ceil = ceilo_client.Client(endpoint=ep, token=os_token)
