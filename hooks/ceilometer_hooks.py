@@ -27,6 +27,7 @@ from charmhelpers.core.hookenv import (
     is_relation_made,
     relation_set,
     status_set,
+    relation_ids,
 )
 from charmhelpers.contrib.openstack.utils import (
     configure_installation_source,
@@ -69,8 +70,9 @@ def install():
 
 
 @hooks.hook('nova-ceilometer-relation-joined')
-def nova_ceilometer_joined():
-    relation_set(subordinate_configuration=json.dumps(NOVA_SETTINGS))
+def nova_ceilometer_joined(relation_id=None):
+    relation_set(relation_id=relation_id,
+                 subordinate_configuration=json.dumps(NOVA_SETTINGS))
 
 
 @hooks.hook("ceilometer-service-relation-changed")
@@ -86,6 +88,10 @@ def upgrade_charm():
     apt_install(
         filter_installed_packages(get_packages()),
         fatal=True)
+    # NOTE(jamespage): Ensure any changes to nova presented data are made
+    #                  during charm upgrades.
+    for rid in relation_ids('nova-ceilometer'):
+        nova_ceilometer_joined(rid)
 
 
 @hooks.hook('config-changed')

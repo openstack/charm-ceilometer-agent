@@ -60,10 +60,6 @@ NOVA_SETTINGS = {
                     ('instance_usage_audit', 'True'),
                     ('instance_usage_audit_period', 'hour'),
                     ('notify_on_state_change', 'vm_and_task_state'),
-                    ('notification_driver',
-                     'ceilometer.compute.nova_notifier'),
-                    ('notification_driver',
-                     'nova.openstack.common.notifier.rpc_notifier')
                 ]
             }
         }
