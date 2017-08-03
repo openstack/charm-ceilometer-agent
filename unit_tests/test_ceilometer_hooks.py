@@ -83,6 +83,7 @@ class CeilometerHooksTest(CharmTestCase):
     def test_nova_ceilometer_joined(self, mock_config):
         hooks.hooks.execute(['hooks/nova-ceilometer-relation-joined'])
         self.relation_set.assert_called_with(
+            relation_id=None,
             subordinate_configuration=json.dumps(
                 ceilometer_utils.NOVA_SETTINGS))
 

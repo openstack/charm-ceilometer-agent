@@ -458,10 +458,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         sub = ('{"nova": {"/etc/nova/nova.conf": {"sections": {"DEFAULT": '
                '[["instance_usage_audit", "True"], '
                '["instance_usage_audit_period", "hour"], '
-               '["notify_on_state_change", "vm_and_task_state"], '
-               '["notification_driver", "ceilometer.compute.nova_notifier"], '
-               '["notification_driver", '
-               '"nova.openstack.common.notifier.rpc_notifier"]]}}}}')
+               '["notify_on_state_change", "vm_and_task_state"]]}}}}')
         expected = {
             'subordinate_configuration': sub,
             'private-address': u.valid_ip
@@ -559,32 +556,11 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             }
         }
 
-        # NOTE(beisner): notification_driver is not checked like the
-        # others, as configparser does not support duplicate config
-        # options, and dicts cant have duplicate keys.
-        # Ex. from conf file:
-        #   notification_driver = ceilometer.compute.nova_notifier
-        #   notification_driver = nova.openstack.common.notifier.rpc_notifier
         for section, pairs in expected.iteritems():
             ret = u.validate_config_data(unit, conf, section, pairs)
             if ret:
                 message = "ceilometer config error: {}".format(ret)
                 amulet.raise_status(amulet.FAIL, msg=message)
-
-        # Check notification_driver existence via simple grep cmd
-        lines = [('notification_driver = '
-                  'ceilometer.compute.nova_notifier'),
-                 ('notification_driver = '
-                  'nova.openstack.common.notifier.rpc_notifier')]
-
-        sentry_units = [unit]
-        cmds = []
-        for line in lines:
-            cmds.append('grep "{}" {}'.format(line, conf))
-
-        ret = u.check_commands_on_units(cmds, sentry_units)
-        if ret:
-            amulet.raise_status(amulet.FAIL, msg=ret)
 
         u.log.debug('OK')
 
