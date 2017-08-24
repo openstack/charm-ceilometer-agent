@@ -186,7 +186,7 @@ SWIFT_CODENAMES = OrderedDict([
     ('ocata',
         ['2.11.0', '2.12.0', '2.13.0']),
     ('pike',
-        ['2.13.0']),
+        ['2.13.0', '2.15.0']),
 ])
 
 # >= Liberty version->codename mapping
@@ -2051,7 +2051,7 @@ def snap_install_requested():
     If openstack-origin is of the form snap:channel-series-release
     and channel is in SNAPS_CHANNELS return True.
     """
-    origin = config('openstack-origin')
+    origin = config('openstack-origin') or ""
     if not origin.startswith('snap:'):
         return False
 

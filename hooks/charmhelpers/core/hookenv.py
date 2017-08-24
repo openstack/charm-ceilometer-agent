@@ -43,6 +43,7 @@ ERROR = "ERROR"
 WARNING = "WARNING"
 INFO = "INFO"
 DEBUG = "DEBUG"
+TRACE = "TRACE"
 MARKER = object()
 
 cache = {}
@@ -200,6 +201,27 @@ def remote_unit():
 def service_name():
     """The name service group this unit belongs to"""
     return local_unit().split('/')[0]
+
+
+def principal_unit():
+    """Returns the principal unit of this unit, otherwise None"""
+    # Juju 2.2 and above provides JUJU_PRINCIPAL_UNIT
+    principal_unit = os.environ.get('JUJU_PRINCIPAL_UNIT', None)
+    # If it's empty, then this unit is the principal
+    if principal_unit == '':
+        return os.environ['JUJU_UNIT_NAME']
+    elif principal_unit is not None:
+        return principal_unit
+    # For Juju 2.1 and below, let's try work out the principle unit by
+    # the various charms' metadata.yaml.
+    for reltype in relation_types():
+        for rid in relation_ids(reltype):
+            for unit in related_units(rid):
+                md = _metadata_unit(unit)
+                subordinate = md.pop('subordinate', None)
+                if not subordinate:
+                    return unit
+    return None
 
 
 @cached
@@ -478,6 +500,21 @@ def metadata():
         return yaml.safe_load(md)
 
 
+def _metadata_unit(unit):
+    """Given the name of a unit (e.g. apache2/0), get the unit charm's
+    metadata.yaml. Very similar to metadata() but allows us to inspect
+    other units. Unit needs to be co-located, such as a subordinate or
+    principal/primary.
+
+    :returns: metadata.yaml as a python object.
+
+    """
+    basedir = os.sep.join(charm_dir().split(os.sep)[:-2])
+    unitdir = 'unit-{}'.format(unit.replace(os.sep, '-'))
+    with open(os.path.join(basedir, unitdir, 'charm', 'metadata.yaml')) as md:
+        return yaml.safe_load(md)
+
+
 @cached
 def relation_types():
     """Get a list of relation types supported by this charm"""
@@ -753,6 +790,9 @@ class Hooks(object):
 
 def charm_dir():
     """Return the root directory of the current charm"""
+    d = os.environ.get('JUJU_CHARM_DIR')
+    if d is not None:
+        return d
     return os.environ.get('CHARM_DIR')
 
 
