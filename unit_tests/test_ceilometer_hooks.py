@@ -40,6 +40,7 @@ TO_PATCH = [
     'update_nrpe_config',
     'is_relation_made',
     'get_packages',
+    'os_release',
 ]
 
 
@@ -90,12 +91,26 @@ class CeilometerHooksTest(CharmTestCase):
     @patch('charmhelpers.core.hookenv.config')
     def test_config_changed_no_upgrade(self, mock_config):
         self.openstack_upgrade_available.return_value = False
+        self.os_release.return_value = 'liberty'
         hooks.hooks.execute(['hooks/config-changed'])
         self.openstack_upgrade_available.\
             assert_called_with('ceilometer-common')
         self.assertFalse(self.do_openstack_upgrade.called)
         self.assertTrue(self.CONFIGS.write_all.called)
         self.assertTrue(self.update_nrpe_config.called)
+        self.assertFalse(self.apt_install.called)
+
+    @patch('charmhelpers.core.hookenv.config')
+    def test_config_changed_partial_upgrade(self, mock_config):
+        self.openstack_upgrade_available.return_value = False
+        self.os_release.return_value = 'mitaka'
+        hooks.hooks.execute(['hooks/config-changed'])
+        self.openstack_upgrade_available.\
+            assert_called_with('ceilometer-common')
+        self.assertFalse(self.do_openstack_upgrade.called)
+        self.assertTrue(self.CONFIGS.write_all.called)
+        self.assertTrue(self.update_nrpe_config.called)
+        self.assertTrue(self.apt_install.called)
 
     @patch('charmhelpers.core.hookenv.config')
     def test_config_changed_upgrade(self, mock_config):
@@ -118,6 +133,7 @@ class CeilometerHooksTest(CharmTestCase):
     @patch('charmhelpers.core.hookenv.config')
     def test_config_changed_no_nrpe(self, mock_config):
         self.openstack_upgrade_available.return_value = False
+        self.os_release.return_value = 'mitaka'
         self.is_relation_made.return_value = False
 
         hooks.hooks.execute(['hooks/config-changed'])

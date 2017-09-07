@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from mock import MagicMock, patch
+from mock import MagicMock, patch, call
 
 import ceilometer_utils as utils
 
@@ -85,10 +85,12 @@ class CeilometerUtilsTest(CharmTestCase):
             '--option', 'Dpkg::Options::=--force-confnew',
             '--option', 'Dpkg::Options::=--force-confdef',
         ]
-        self.apt_install.assert_called_with(
-            packages=utils.CEILOMETER_AGENT_PACKAGES,
-            options=dpkg_opts, fatal=True
-        )
+        self.apt_install.assert_has_calls([
+            call(packages=utils.CEILOMETER_AGENT_PACKAGES,
+                 options=dpkg_opts, fatal=True),
+            call(['python-ceilometer', 'ceilometer-common',
+                  'ceilometer-agent-compute'], fatal=True),
+        ])
         self.configure_installation_source.assert_called_with(
             'cloud:precise-havana'
         )

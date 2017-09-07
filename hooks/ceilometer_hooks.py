@@ -33,6 +33,8 @@ from charmhelpers.contrib.openstack.utils import (
     configure_installation_source,
     openstack_upgrade_available,
     pausable_restart_on_change as restart_on_change,
+    os_release,
+    CompareOpenStackReleases,
 )
 from ceilometer_utils import (
     restart_map,
@@ -101,6 +103,15 @@ def config_changed():
         if openstack_upgrade_available('ceilometer-common'):
             status_set('maintenance', 'Running openstack upgrade')
             do_openstack_upgrade(CONFIGS)
+        else:
+            # It's possible that a partial upgrade has occurred if nova-compute
+            # was upgraded first. If > mitaka call apt_install to allow
+            # packages which are enabled for specific OpenStack version to be
+            # installed if they haven't been already.
+            os_rel = os_release('ceilometer-common', reset_cache=True)
+            if (CompareOpenStackReleases(os_rel) >= 'mitaka'):
+                apt_install(filter_installed_packages(get_packages()),
+                            fatal=True)
     if is_relation_made('nrpe-external-master'):
         update_nrpe_config()
     CONFIGS.write_all()

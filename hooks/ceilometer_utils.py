@@ -30,6 +30,7 @@ from charmhelpers.contrib.openstack.utils import (
     os_application_version_set,
     token_cache_pkgs,
     enable_memcache,
+    reset_os_release,
 )
 from charmhelpers.core.hookenv import (
     config,
@@ -163,9 +164,16 @@ def do_openstack_upgrade(configs):
     ]
     apt_update(fatal=True)
     apt_upgrade(options=dpkg_opts, fatal=True, dist=True)
+    reset_os_release()
     apt_install(packages=CEILOMETER_AGENT_PACKAGES,
                 options=dpkg_opts,
                 fatal=True)
+    # Call apt_install a 2nd time to allow packages which are enabled
+    # for specific OpenStack version to be installed . This is because
+    # Openstack version for a subordinate should be derived from the
+    # version of an installed package rather than relying on
+    # openstack-origin which would not be present in a subordinate.
+    apt_install(get_packages(), fatal=True)
 
     # set CONFIGS to load templates from new release
     configs.set_release(openstack_release=new_os_rel)
