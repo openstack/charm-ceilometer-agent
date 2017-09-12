@@ -58,8 +58,8 @@ class CeilometerContextsTest(CharmTestCase):
             'metering_secret': 'secret'
         }
         self.test_relation.set(data)
-        self.assertEquals(contexts.CeilometerServiceContext()(), data)
+        self.assertEqual(contexts.CeilometerServiceContext()(), data)
 
     def test_ceilometer_service_context_not_related(self):
         self.relation_ids.return_value = []
-        self.assertEquals(contexts.CeilometerServiceContext()(), {})
+        self.assertEqual(contexts.CeilometerServiceContext()(), {})

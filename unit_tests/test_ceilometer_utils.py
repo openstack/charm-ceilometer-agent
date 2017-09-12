@@ -60,9 +60,9 @@ class CeilometerUtilsTest(CharmTestCase):
     def test_restart_map(self):
         self.enable_memcache.return_value = False
         restart_map = utils.restart_map()
-        self.assertEquals(restart_map,
-                          {'/etc/ceilometer/ceilometer.conf': [
-                              'ceilometer-agent-compute']})
+        self.assertEqual(restart_map,
+                         {'/etc/ceilometer/ceilometer.conf': [
+                             'ceilometer-agent-compute']})
 
     def test_restart_map_newton(self):
         self.enable_memcache.return_value = True
@@ -70,7 +70,7 @@ class CeilometerUtilsTest(CharmTestCase):
         expect = {
             '/etc/ceilometer/ceilometer.conf': ['ceilometer-agent-compute'],
             '/etc/memcached.conf': ['memcached']}
-        self.assertEquals(restart_map, expect)
+        self.assertEqual(restart_map, expect)
 
     def test_do_openstack_upgrade(self):
         self.config.side_effect = self.test_config.get
