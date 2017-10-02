@@ -1,45 +1,23 @@
 options:
   openstack-origin:
-    default: distro
     type: string
+    default: distro
     description: |
-      Repository from which to install.  May be one of the following:
+      Repository from which to install. May be one of the following:
       distro (default), ppa:somecustom/ppa, a deb url sources entry,
-      or a supported Cloud Archive release pocket.
-
-      Supported Cloud Archive sources include:
-
+      or a supported Ubuntu Cloud Archive e.g.
+      .
       cloud:<series>-<openstack-release>
       cloud:<series>-<openstack-release>/updates
       cloud:<series>-<openstack-release>/staging
       cloud:<series>-<openstack-release>/proposed
-
-      For series=Precise we support cloud archives for openstack-release:
-         * icehouse
-
-      For series=Trusty we support cloud archives for openstack-release:
-         * juno
-         * kilo
-         * ...
-
+      .
+      See https://wiki.ubuntu.com/OpenStack/CloudArchive for info on which
+      cloud archives are available and supported.
+      .
       NOTE: updating this setting to a source that is known to provide
-      a later version of OpenStack will trigger a software upgrade.
-  nagios_context:
-    default: "juju"
-    type: string
-    description: |
-      Used by the nrpe-external-master subordinate charm.
-      A string that will be prepended to instance name to set the host name
-      in nagios. So for instance the hostname would be something like:
-          juju-myservice-0
-      If you're running multiple environments with the same services in them
-      this allows you to differentiate between them.
-  nagios_servicegroups:
-    default: ""
-    type: string
-    description: |
-        A comma-separated list of nagios servicegroups.
-        If left empty, the nagios_context will be used as the servicegroup
+      a later version of OpenStack will trigger a software upgrade unless
+      action-managed-upgrade is set to True.
   action-managed-upgrade:
     type: boolean
     default: False
@@ -50,9 +28,25 @@ options:
       wait for you to execute the openstack-upgrade action for this charm on
       each unit. If False it will revert to existing behavior of upgrading
       all units on config change.
+  nagios_context:
+    type: string
+    default: "juju"
+    description: |
+      Used by the nrpe-external-master subordinate charm.
+      A string that will be prepended to instance name to set the host name
+      in nagios. So for instance the hostname would be something like:
+          juju-myservice-0
+      If you're running multiple environments with the same services in them
+      this allows you to differentiate between them.
+  nagios_servicegroups:
+    type: string
+    default: ""
+    description: |
+        A comma-separated list of nagios servicegroups.
+        If left empty, the nagios_context will be used as the servicegroup
   use-internal-endpoints:
-    default: False
     type: boolean
+    default: False
     description: |
       Openstack mostly defaults to using public endpoints for
       internal communication between services. If set to True this option will
