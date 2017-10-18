@@ -38,6 +38,7 @@ class CeilometerContextsTest(CharmTestCase):
             'debug': True,
             'verbose': False,
             'rabbitmq_host': 'foo',
+            'rabbitmq_hosts': 'foo,bar',
             'rabbitmq_user': 'bar',
             'rabbitmq_password': 'baz',
             'rabbitmq_virtual_host': 'openstack',

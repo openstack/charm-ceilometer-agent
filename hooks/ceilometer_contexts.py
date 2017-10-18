@@ -53,7 +53,8 @@ class CeilometerServiceContext(OSContextGenerator):
 
     optional_keys = [
         'rabbit_ssl_port',
-        'rabbit_ssl_ca'
+        'rabbit_ssl_ca',
+        'rabbitmq_hosts'
     ]
 
     def __init__(self, ssl_dir=None):
