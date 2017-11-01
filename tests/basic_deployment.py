@@ -601,13 +601,22 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             'DEFAULT': {
                 'logdir': '/var/log/ceilometer'
             },
-            'service_credentials': {
-                'interface': 'internalURL'
-            },
         }
 
         juju_service = 'ceilometer-agent'
-        service = 'ceilometer-polling'
+        if self._get_openstack_release() >= self.xenial_ocata:
+            service = 'ceilometer-polling: AgentManager worker(0)'
+        elif self._get_openstack_release() >= self.xenial_newton:
+            service = 'ceilometer-polling - AgentManager(0)'
+        elif self._get_openstack_release() >= self.trusty_liberty:
+            service = 'ceilometer-polling'
+        else:
+            service = 'ceilometer-agent-compute'
+        if self._get_openstack_release() >= self.trusty_mitaka:
+            int_value = 'internalURL'
+        else:
+            int_value = 'internal'
+        expected_alternate['service_credentials'] = {'interface': int_value}
         option = 'use-internal-endpoints'
         set_default = {option: 'False'}
         set_alternate = {option: 'True'}
