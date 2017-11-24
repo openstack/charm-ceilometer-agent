@@ -1,1 +1,18 @@
-ceilometer_hooks.py
+#!/bin/bash
+
+declare -a DEPS=('apt')
+
+check_and_install() {
+    pkg="${1}-${2}"
+    if ! dpkg -s ${pkg} 2>&1 > /dev/null; then
+        apt-get -y install ${pkg}
+    fi
+}
+
+PYTHON="python"
+
+for dep in ${DEPS[@]}; do
+    check_and_install ${PYTHON} ${dep}
+done
+
+exec ./hooks/install.real

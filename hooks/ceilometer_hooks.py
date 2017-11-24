@@ -52,7 +52,7 @@ hooks = Hooks()
 CONFIGS = register_configs()
 
 
-@hooks.hook()
+@hooks.hook('install.real')
 def install():
     origin = config('openstack-origin')
     configure_installation_source(origin)
