@@ -14,10 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Amulet tests on a basic ceilometer-agent deployment on zesty-ocata."""
+"""Amulet tests on a basic ceilometer-agent deployment on bionic-queens."""
 
 from basic_deployment import CeiloAgentBasicDeployment
 
 if __name__ == '__main__':
-    deployment = CeiloAgentBasicDeployment(series='zesty')
+    deployment = CeiloAgentBasicDeployment(series='bionic')
     deployment.run_tests()
