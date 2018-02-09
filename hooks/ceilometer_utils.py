@@ -71,7 +71,7 @@ CONFIG_FILES = {
     CEILOMETER_CONF: {
         'hook_contexts': [
             CeilometerServiceContext(ssl_dir=CEILOMETER_CONF_DIR),
-            context.InternalEndpointContext('ceilometer-common'),
+            context.InternalEndpointContext(),
             context.MemcacheContext()],
         'services': CEILOMETER_AGENT_SERVICES
     },
