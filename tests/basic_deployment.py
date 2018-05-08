@@ -32,6 +32,9 @@ u = OpenStackAmuletUtils(DEBUG)
 class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
     """Amulet tests on a basic ceilometer-agent deployment."""
 
+    no_origin = ['memcached', 'percona-cluster', 'rabbitmq-server',
+                 'ceph-mon', 'ceph-osd']
+
     def __init__(self, series, openstack=None, source=None, stable=False):
         """Deploy the entire test environment."""
         super(CeiloAgentBasicDeployment, self).__init__(series, openstack,
@@ -42,7 +45,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         self._deploy()
 
         u.log.info('Waiting on extended status checks...')
-        exclude_services = ['mongodb']
+        exclude_services = ['mongodb', 'memcached']
         self._auto_wait_for_status(exclude_services=exclude_services)
 
         self.d.sentry.wait()
@@ -58,24 +61,32 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         # Note: ceilometer-agent becomes a subordinate of nova-compute
         this_service = {'name': 'ceilometer-agent'}
         other_services = [
-            {'name': 'percona-cluster'},
+            {'name': 'percona-cluster', 'constraints': {'mem': '3072M'}},
             {'name': 'rabbitmq-server'},
             {'name': 'keystone'},
-            {'name': 'mongodb',
-             'location': 'cs:~1chb1n/{}/mongodb'.format(self.series)},
             {'name': 'glance'},  # to satisfy workload status
             {'name': 'ceilometer'},
             {'name': 'nova-compute'}
         ]
-        super(CeiloAgentBasicDeployment, self)._add_services(this_service,
-                                                             other_services)
+        if self._get_openstack_release() >= self.xenial_pike:
+            other_services.extend([
+                {'name': 'gnocchi'},
+                {'name': 'memcached', 'location': 'cs:memcached'},
+                {'name': 'ceph-mon', 'units': 3},
+                {'name': 'ceph-osd', 'units': 3}])
+        else:
+            other_services.append({
+                'name': 'mongodb',
+                'location': 'cs:~thedac/{}/mongodb'.format(self.series)})
+        super(CeiloAgentBasicDeployment, self)._add_services(
+            this_service,
+            other_services,
+            no_origin=self.no_origin)
 
     def _add_relations(self):
         """Add all of the relations for the services."""
         relations = {
-            'ceilometer:shared-db': 'mongodb:database',
             'ceilometer:amqp': 'rabbitmq-server:amqp',
-            'ceilometer:identity-service': 'keystone:identity-service',
             'ceilometer:identity-notifications': 'keystone:'
                                                  'identity-notifications',
             'keystone:shared-db': 'percona-cluster:shared-db',
@@ -89,6 +100,28 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             'glance:amqp': 'rabbitmq-server:amqp',
             'nova-compute:image-service': 'glance:image-service'
         }
+        if self._get_openstack_release() >= self.xenial_pike:
+            additional_relations = {
+                'ceilometer:metric-service': 'gnocchi:metric-service',
+                'ceph-mon:osd': 'ceph-osd:mon',
+                'gnocchi:identity-service': 'keystone:identity-service',
+                'gnocchi:shared-db': 'percona-cluster:shared-db',
+                'gnocchi:storage-ceph': 'ceph-mon:client',
+                'gnocchi:coordinator-memcached': 'memcached:cache',
+            }
+
+            if self._get_openstack_release() >= self.xenial_queens:
+                identity_relations = {'ceilometer:identity-credentials':
+                                      'keystone:identity-credentials'}
+            else:
+                identity_relations = {'ceilometer:identity-service':
+                                      'keystone:identity-service'}
+            additional_relations.update(identity_relations)
+        else:
+            additional_relations = {
+                'ceilometer:shared-db': 'mongodb:database',
+                'ceilometer:identity-service': 'keystone:identity-service'}
+        relations.update(additional_relations)
         super(CeiloAgentBasicDeployment, self)._add_relations(relations)
 
     def _configure_services(self):
@@ -104,6 +137,10 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             'keystone': keystone_config,
             'percona-cluster': pxc_config,
         }
+        if self._get_openstack_release() >= self.xenial_pike:
+            configs['ceph-osd'] = {'osd-devices': '/dev/vdb',
+                                   'osd-reformat': True,
+                                   'ephemeral-unmount': '/mnt'}
         super(CeiloAgentBasicDeployment, self)._configure_services(configs)
 
     def _get_token(self):
@@ -117,42 +154,50 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         self.pxc_sentry = self.d.sentry['percona-cluster'][0]
         self.keystone_sentry = self.d.sentry['keystone'][0]
         self.rabbitmq_sentry = self.d.sentry['rabbitmq-server'][0]
-        self.mongodb_sentry = self.d.sentry['mongodb'][0]
         self.nova_sentry = self.d.sentry['nova-compute'][0]
+        if self._get_openstack_release() >= self.xenial_pike:
+            self.gnocchi_sentry = self.d.sentry['gnocchi'][0]
+        else:
+            self.mongodb_sentry = self.d.sentry['mongodb'][0]
         u.log.debug('openstack release val: {}'.format(
             self._get_openstack_release()))
         u.log.debug('openstack release str: {}'.format(
             self._get_openstack_release_string()))
 
         # Authenticate admin with keystone endpoint
-        self.keystone = u.authenticate_keystone_admin(self.keystone_sentry,
-                                                      user='admin',
-                                                      password='openstack',
-                                                      tenant='admin')
+        self.keystone_session, self.keystone = u.get_default_keystone_session(
+            self.keystone_sentry,
+            openstack_release=self._get_openstack_release())
 
-        # Authenticate admin with ceilometer endpoint
-        ep = self.keystone.service_catalog.url_for(service_type='metering',
-                                                   interface='publicURL')
-        os_token = self.keystone.auth_token
         self.log.debug('Instantiating ceilometer client...')
-        self.ceil = ceilo_client.Client(endpoint=ep, token=os_token)
+        if self._get_openstack_release() >= self.xenial_pike:
+            self.ceil = ceilo_client.Client(session=self.keystone_session,)
+        else:
+            # Authenticate admin with ceilometer endpoint
+            ep = self.keystone.service_catalog.url_for(service_type='metering',
+                                                       interface='publicURL')
+            os_token = self.keystone.auth_token
+            self.ceil = ceilo_client.Client(endpoint=ep, token=os_token)
 
     def test_100_services(self):
         """Verify the expected services are running on the corresponding
            service units."""
         u.log.debug('Checking system services on units...')
-
+        release = self._get_openstack_release()
         ceilometer_svcs = [
             'ceilometer-agent-central',
-            'ceilometer-collector',
-            'ceilometer-api',
             'ceilometer-agent-notification',
         ]
+        if release < self.xenial_pike:
+            ceilometer_svcs.append('ceilometer-collector')
 
-        if self._get_openstack_release() >= self.xenial_ocata:
+        if (release >= self.xenial_ocata and release < self.xenial_pike):
             ceilometer_svcs.append('apache2')
-            ceilometer_svcs.remove('ceilometer-api')
-        elif self._get_openstack_release() < self.trusty_mitaka:
+
+        if release < self.xenial_ocata:
+            ceilometer_svcs.append('ceilometer-api')
+
+        if release < self.trusty_mitaka:
             ceilometer_svcs.append('ceilometer-alarm-evaluator')
             ceilometer_svcs.append('ceilometer-alarm-notifier')
 
@@ -168,6 +213,10 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
 
     def test_110_service_catalog(self):
         """Verify that the service catalog endpoint data is valid."""
+        if self._get_openstack_release() >= self.xenial_pike:
+            u.log.debug('Skipping catalogue checks as ceilometer no longer '
+                        'registers endpoints')
+            return
         u.log.debug('Checking keystone service catalog data...')
         endpoint_check = {
             'adminURL': u.valid_url,
@@ -182,7 +231,10 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         }
         actual = self.keystone.service_catalog.get_endpoints()
 
-        ret = u.validate_svc_catalog_endpoint_data(expected, actual)
+        ret = u.validate_svc_catalog_endpoint_data(
+            expected,
+            actual,
+            openstack_release=self._get_openstack_release())
         if ret:
             amulet.raise_status(amulet.FAIL, msg=ret)
 
@@ -190,6 +242,10 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
 
     def test_112_keystone_api_endpoint(self):
         """Verify the ceilometer api endpoint data."""
+        if self._get_openstack_release() >= self.xenial_pike:
+            u.log.debug('Skipping catalogue checks as ceilometer no longer '
+                        'registers endpoints')
+            return
         u.log.debug('Checking keystone api endpoint data...')
         endpoints = self.keystone.endpoints.list()
         u.log.debug(endpoints)
@@ -202,8 +258,13 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
                     'publicurl': u.valid_url,
                     'service_id': u.not_null}
 
-        ret = u.validate_endpoint_data(endpoints, admin_port, internal_port,
-                                       public_port, expected)
+        ret = u.validate_endpoint_data(
+            endpoints,
+            admin_port,
+            internal_port,
+            public_port,
+            expected,
+            openstack_release=self._get_openstack_release())
         if ret:
             message = 'Keystone endpoint: {}'.format(ret)
             amulet.raise_status(amulet.FAIL, msg=message)
@@ -212,6 +273,10 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
 
     def test_114_ceilometer_api_endpoint(self):
         """Verify the ceilometer api endpoint data."""
+        if self._get_openstack_release() >= self.xenial_pike:
+            u.log.debug('Skipping catalogue checks as ceilometer no longer '
+                        'registers endpoints')
+            return
         u.log.debug('Checking ceilometer api endpoint data...')
         endpoints = self.keystone.endpoints.list()
         u.log.debug(endpoints)
@@ -239,6 +304,10 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
 
     def test_200_ceilometer_identity_relation(self):
         """Verify the ceilometer to keystone identity-service relation data"""
+        if self._get_openstack_release() >= self.xenial_pike:
+            u.log.debug('Skipping identity-service checks as ceilometer no '
+                        'longer has this rerlation')
+            return
         u.log.debug('Checking ceilometer to keystone identity-service '
                     'relation data...')
         unit = self.ceil_sentry
@@ -266,6 +335,10 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
 
     def test_201_keystone_ceilometer_identity_relation(self):
         """Verify the keystone to ceilometer identity-service relation data"""
+        if self._get_openstack_release() >= self.xenial_pike:
+            u.log.debug('Skipping identity-service checks as ceilometer no '
+                        'longer has this rerlation')
+            return
         u.log.debug('Checking keystone:ceilometer identity relation data...')
         unit = self.keystone_sentry
         relation = ['identity-service', 'ceilometer:identity-service']
@@ -302,7 +375,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         # May be glance- or keystone- or another endpoint-changed value, so
         # check that at least one ???-endpoint-changed value exists.
         unit = self.keystone_sentry
-        relation_data = unit.relation('identity-service',
+        relation_data = unit.relation('identity-notifications',
                                       'ceilometer:identity-notifications')
 
         expected = '-endpoint-changed'
@@ -358,6 +431,10 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
 
     def test_205_ceilometer_to_mongodb_relation(self):
         """Verify the ceilometer to mongodb relation data"""
+        if self._get_openstack_release() >= self.xenial_pike:
+            u.log.debug('Skipping monodb checks for OS release less than pike')
+            return
+
         u.log.debug('Checking ceilometer:mongodb relation data...')
         unit = self.ceil_sentry
         relation = ['shared-db', 'mongodb:database']
@@ -375,6 +452,9 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
 
     def test_206_mongodb_to_ceilometer_relation(self):
         """Verify the mongodb to ceilometer relation data"""
+        if self._get_openstack_release() >= self.xenial_pike:
+            u.log.debug('Skipping monodb checks for OS release less than pike')
+            return
         u.log.debug('Checking mongodb:ceilometer relation data...')
         unit = self.mongodb_sentry
         relation = ['database', 'ceilometer:shared-db']
@@ -402,18 +482,23 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             'rabbitmq_user': 'ceilometer',
             'verbose': 'False',
             'rabbitmq_host': u.valid_ip,
-            'service_ports': "{'ceilometer_api': [8777, 8767]}",
             'use_syslog': 'False',
             'metering_secret': u.not_null,
             'rabbitmq_virtual_host': 'openstack',
-            'db_port': '27017',
             'private-address': u.valid_ip,
-            'db_name': 'ceilometer',
-            'db_host': u.valid_ip,
             'debug': 'False',
             'rabbitmq_password': u.not_null,
             'port': '8767'
         }
+        if self._get_openstack_release() >= self.xenial_pike:
+            expected['gnocchi_url'] = u.valid_url
+            if self._get_openstack_release() >= self.xenial_queens:
+                expected['port'] = '8777'
+        else:
+            expected['db_port'] = '27017'
+            expected['db_name'] = 'ceilometer'
+            expected['db_host'] = u.valid_ip
+            expected['service_ports'] = "{'ceilometer_api': [8777, 8767]}"
 
         ret = u.validate_relation_data(unit, relation, expected)
         if ret:
@@ -475,21 +560,31 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         """Verify the data in the ceilometer config file."""
         u.log.debug('Checking ceilometer config file data...')
         unit = self.ceil_agent_sentry
-        ks_rel = self.keystone_sentry.relation('identity-service',
-                                               'ceilometer:identity-service')
         conf = '/etc/ceilometer/ceilometer.conf'
         expected = {
             'DEFAULT': {
                 'verbose': 'False',
                 'debug': 'False',
-            }
+            },
         }
+        if self._get_openstack_release() >= self.xenial_pike:
+            if self._get_openstack_release() >= self.xenial_queens:
+                ks_rel = self.keystone_sentry.relation(
+                    'identity-credentials',
+                    'ceilometer:identity-credentials')
+                ks_key_prefix = 'credentials'
+            else:
+                ks_rel = self.keystone_sentry.relation(
+                    'identity-service',
+                    'ceilometer:identity-service')
+                ks_key_prefix = 'service'
+        else:
+            ks_rel = self.keystone_sentry.relation(
+                'identity-service',
+                'ceilometer:identity-service')
+            ks_key_prefix = 'service'
 
         if self._get_openstack_release() < self.trusty_mitaka:
-            expected['DEFAULT'].update({'rabbit_userid': 'ceilometer',
-                                        'rabbit_virtual_host': 'openstack',
-                                        'rabbit_password': u.not_null,
-                                        'rabbit_host': u.valid_ip})
             auth_uri = '%s://%s:%s/v2.0' % (ks_rel['service_protocol'],
                                             ks_rel['service_host'],
                                             ks_rel['service_port'])
@@ -499,14 +594,10 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
                                                'os_password':
                                                ks_rel['service_password']}
         else:
-            expected['oslo_messaging_rabbit'] = {'rabbit_userid': 'ceilometer',
-                                                 'rabbit_virtual_host':
-                                                 'openstack',
-                                                 'rabbit_password': u.not_null,
-                                                 'rabbit_host': u.valid_ip}
-            auth_uri = '%s://%s:%s' % (ks_rel['service_protocol'],
-                                       ks_rel['service_host'],
-                                       ks_rel['service_port'])
+            auth_uri = '%s://%s:%s' % (
+                ks_rel['{}_protocol'.format(ks_key_prefix)],
+                ks_rel['{}_host'.format(ks_key_prefix)],
+                ks_rel['{}_port'.format(ks_key_prefix)])
             # NOTE(dosaboy): os_ prefix is deprecated and no longer used as
             #                of Mitaka.
             project_domain_name = 'default'
@@ -514,25 +605,21 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             if 'api_version' in ks_rel and float(ks_rel['api_version']) > 2:
                 project_domain_name = 'service_domain'
                 user_domain_name = 'service_domain'
-            expected['service_credentials'] = {'auth_url': auth_uri,
-                                               'project_name': 'services',
-                                               'project_domain_name':
-                                                   project_domain_name,
-                                               'user_domain_name':
-                                                   user_domain_name,
-                                               'username': 'ceilometer',
-                                               'password':
-                                               ks_rel['service_password']}
-            expected['keystone_authtoken'] = {'auth_uri': auth_uri,
-                                              'auth_type': 'password',
-                                              'project_domain_name':
-                                                  project_domain_name,
-                                              'user_domain_name':
-                                                  user_domain_name,
-                                              'project_name': 'services',
-                                              'username': 'ceilometer',
-                                              'password':
-                                                  ks_rel['service_password']}
+            expected['service_credentials'] = {
+                'auth_url': auth_uri,
+                'project_name': 'services',
+                'project_domain_name': project_domain_name,
+                'user_domain_name': user_domain_name,
+                'username': 'ceilometer',
+                'password': ks_rel['{}_password'.format(ks_key_prefix)]}
+            expected['keystone_authtoken'] = {
+                'auth_uri': auth_uri,
+                'auth_type': 'password',
+                'project_domain_name': project_domain_name,
+                'user_domain_name': user_domain_name,
+                'project_name': 'services',
+                'username': 'ceilometer',
+                'password': ks_rel['{}_password'.format(ks_key_prefix)]}
 
         for section, pairs in expected.iteritems():
             ret = u.validate_config_data(unit, conf, section, pairs)
@@ -666,6 +753,10 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
 
     def test_400_api_connection(self):
         """Simple api calls to check service is up and responding"""
+        if self._get_openstack_release() >= self.xenial_pike:
+            u.log.debug('Skipping API checks as ceilometer api has been '
+                        'removed')
+            return
         u.log.debug('Checking api functionality...')
         assert(self.ceil.samples.list() == [])
         assert(self.ceil.meters.list() == [])
@@ -687,21 +778,27 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         # Services which are expected to restart upon config change,
         # and corresponding config files affected by the change
         conf_file = '/etc/ceilometer/ceilometer.conf'
-        if self._get_openstack_release() >= self.xenial_ocata:
+        if self._get_openstack_release() >= self.xenial_pike:
             services = {
-                'ceilometer-collector: CollectorService worker(0)': conf_file,
-                'apache2': conf_file,
                 'ceilometer-polling: AgentManager worker(0)': conf_file,
                 'ceilometer-agent-notification: NotificationService worker(0)':
                     conf_file,
             }
+        elif self._get_openstack_release() >= self.xenial_ocata:
+            services = {
+                'ceilometer-collector: CollectorService worker(0)': conf_file,
+                'ceilometer-polling: AgentManager worker(0)': conf_file,
+                'ceilometer-agent-notification: NotificationService worker(0)':
+                    conf_file,
+                'apache2': conf_file,
+            }
         elif self._get_openstack_release() >= self.xenial_newton:
             services = {
                 'ceilometer-collector - CollectorService(0)': conf_file,
-                'ceilometer-api': conf_file,
                 'ceilometer-polling - AgentManager(0)': conf_file,
                 'ceilometer-agent-notification - NotificationService(0)':
                     conf_file,
+                'ceilometer-api': conf_file,
             }
         else:
             services = {
