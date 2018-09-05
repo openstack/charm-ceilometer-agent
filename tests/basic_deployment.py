@@ -35,7 +35,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
     no_origin = ['memcached', 'percona-cluster', 'rabbitmq-server',
                  'ceph-mon', 'ceph-osd']
 
-    def __init__(self, series, openstack=None, source=None, stable=False):
+    def __init__(self, series, openstack=None, source=None, stable=True):
         """Deploy the entire test environment."""
         super(CeiloAgentBasicDeployment, self).__init__(series, openstack,
                                                         source, stable)
