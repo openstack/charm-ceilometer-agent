@@ -12,11 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
+
 from mock import MagicMock, patch, call
+
+# python-apt is not installed as part of test-requirements but is imported by
+# some charmhelpers modules so create a fake import.
+mock_apt = MagicMock()
+sys.modules['apt'] = mock_apt
+mock_apt.apt_pkg = MagicMock()
 
 import ceilometer_utils as utils
 
 from test_utils import CharmTestCase
+
 
 TO_PATCH = [
     'get_os_codename_package',
@@ -76,6 +85,7 @@ class CeilometerUtilsTest(CharmTestCase):
         self.config.side_effect = self.test_config.get
         self.test_config.set('openstack-origin', 'cloud:precise-havana')
         self.get_os_codename_install_source.return_value = 'havana'
+        self.get_os_codename_package.return_value = 'icehouse'
         configs = MagicMock()
         utils.do_openstack_upgrade(configs)
         configs.set_release.assert_called_with(openstack_release='havana')
@@ -137,3 +147,29 @@ class CeilometerUtilsTest(CharmTestCase):
             asf.assert_called_once_with('some-config')
             # ports=None whilst port checks are disabled.
             f.assert_called_once_with('assessor', services='s1', ports=None)
+
+    def test_determine_purge_packages(self):
+        'Ensure no packages are identified for purge prior to rocky'
+        self.get_os_codename_package.return_value = 'queens'
+        self.assertEqual(utils.determine_purge_packages(), [])
+
+    def test_determine_purge_packages_rocky(self):
+        'Ensure python packages are identified for purge at rocky'
+        self.get_os_codename_package.return_value = 'rocky'
+        self.assertEqual(utils.determine_purge_packages(),
+                         [p for p in utils.CEILOMETER_AGENT_PACKAGES
+                          if p.startswith('python-')] + ['python-memcache'])
+
+    def test_get_packages_queens(self):
+        self.get_os_codename_package.return_value = 'queens'
+        self.token_cache_pkgs.return_value = []
+        self.assertEqual(utils.get_packages(),
+                         utils.CEILOMETER_AGENT_PACKAGES)
+
+    def test_get_packages_rocky(self):
+        self.get_os_codename_package.return_value = 'rocky'
+        self.token_cache_pkgs.return_value = []
+        self.assertEqual(sorted(utils.get_packages()),
+                         sorted([p for p in utils.CEILOMETER_AGENT_PACKAGES
+                                 if not p.startswith('python-')] +
+                                ['python3-ceilometer', 'python3-memcache']))
