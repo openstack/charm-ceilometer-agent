@@ -31,12 +31,20 @@ from charmhelpers.contrib.openstack.utils import (
     token_cache_pkgs,
     enable_memcache,
     reset_os_release,
+    CompareOpenStackReleases,
 )
 from charmhelpers.core.hookenv import (
     config,
     log,
 )
-from charmhelpers.fetch import apt_update, apt_install, apt_upgrade
+from charmhelpers.fetch import (
+    apt_update,
+    apt_install,
+    apt_upgrade,
+    apt_purge,
+    apt_autoremove,
+    filter_missing_packages,
+)
 
 CEILOMETER_CONF_DIR = "/etc/ceilometer"
 CEILOMETER_CONF = "%s/ceilometer.conf" % CEILOMETER_CONF_DIR
@@ -46,6 +54,11 @@ CEILOMETER_AGENT_SERVICES = ['ceilometer-agent-compute']
 CEILOMETER_AGENT_PACKAGES = [
     'python-ceilometer', 'ceilometer-common',
     'ceilometer-agent-compute'
+]
+
+PY3_PACKAGES = [
+    'python3-ceilometer',
+    'python3-memcache',
 ]
 
 VERSION_PACKAGE = 'ceilometer-common'
@@ -107,11 +120,34 @@ def register_configs():
 
 
 def get_packages():
-    release = (get_os_codename_package('ceilometer-common', fatal=False) or
-               'icehouse')
+    release = CompareOpenStackReleases(get_os_codename_package(
+        'ceilometer-common', fatal=False) or 'icehouse')
+
     packages = deepcopy(CEILOMETER_AGENT_PACKAGES)
     packages.extend(token_cache_pkgs(release=release))
+
+    if release >= 'rocky':
+        packages = [p for p in packages if not p.startswith('python-')]
+        packages.extend(PY3_PACKAGES)
+
     return packages
+
+
+def determine_purge_packages():
+    '''
+    Determine list of packages that where previously installed which are no
+    longer needed.
+
+    :returns: list of package names
+    '''
+    release = CompareOpenStackReleases(get_os_codename_package(
+        'ceilometer-common', fatal=False) or 'icehouse')
+    if release >= 'rocky':
+        pkgs = [p for p in CEILOMETER_AGENT_PACKAGES
+                if p.startswith('python-')]
+        pkgs.append('python-memcache')
+        return pkgs
+    return []
 
 
 def restart_map():
@@ -174,6 +210,11 @@ def do_openstack_upgrade(configs):
     # version of an installed package rather than relying on
     # openstack-origin which would not be present in a subordinate.
     apt_install(get_packages(), fatal=True)
+
+    installed_packages = filter_missing_packages(determine_purge_packages())
+    if installed_packages:
+        apt_purge(installed_packages, fatal=True)
+        apt_autoremove(purge=True, fatal=True)
 
     # set CONFIGS to load templates from new release
     configs.set_release(openstack_release=new_os_rel)

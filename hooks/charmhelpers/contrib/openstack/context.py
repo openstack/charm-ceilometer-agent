@@ -1519,6 +1519,10 @@ class NeutronAPIContext(OSContextGenerator):
                 'rel_key': 'enable-qos',
                 'default': False,
             },
+            'enable_nsg_logging': {
+                'rel_key': 'enable-nsg-logging',
+                'default': False,
+            },
         }
         ctxt = self.get_neutron_options({})
         for rid in relation_ids('neutron-plugin-api'):
