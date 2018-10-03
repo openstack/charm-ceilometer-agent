@@ -35,6 +35,9 @@ from charmhelpers.contrib.openstack.utils import (
     pausable_restart_on_change as restart_on_change,
     os_release,
     CompareOpenStackReleases,
+    is_unit_paused_set,
+    series_upgrade_prepare,
+    series_upgrade_complete,
 )
 from ceilometer_utils import (
     restart_map,
@@ -45,6 +48,8 @@ from ceilometer_utils import (
     do_openstack_upgrade,
     assess_status,
     get_packages,
+    pause_unit_helper,
+    resume_unit_helper,
 )
 from charmhelpers.contrib.charmsupport import nrpe
 
@@ -99,6 +104,12 @@ def upgrade_charm():
 @hooks.hook('config-changed')
 @restart_on_change(restart_map(), stopstart=True)
 def config_changed():
+    # if we are paused, delay doing any config changed hooks.
+    # It is forced on the resume.
+    if is_unit_paused_set():
+        log("Unit is pause or upgrading. Skipping config_changed", "WARN")
+        return
+
     if not config('action-managed-upgrade'):
         if openstack_upgrade_available('ceilometer-common'):
             status_set('maintenance', 'Running openstack upgrade')
@@ -127,6 +138,20 @@ def update_nrpe_config():
     nrpe_setup = nrpe.NRPE(hostname=hostname)
     nrpe.add_init_service_checks(nrpe_setup, services(), current_unit)
     nrpe_setup.write()
+
+
+@hooks.hook('pre-series-upgrade')
+def pre_series_upgrade():
+    log("Running prepare series upgrade hook", "INFO")
+    series_upgrade_prepare(
+        pause_unit_helper, CONFIGS)
+
+
+@hooks.hook('post-series-upgrade')
+def post_series_upgrade():
+    log("Running complete series upgrade hook", "INFO")
+    series_upgrade_complete(
+        resume_unit_helper, CONFIGS)
 
 
 if __name__ == '__main__':
