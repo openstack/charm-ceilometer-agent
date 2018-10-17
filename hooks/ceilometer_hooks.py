@@ -43,7 +43,6 @@ from ceilometer_utils import (
     restart_map,
     services,
     register_configs,
-    CEILOMETER_AGENT_PACKAGES,
     NOVA_SETTINGS,
     do_openstack_upgrade,
     assess_status,
@@ -63,14 +62,9 @@ def install():
     configure_installation_source(origin)
     status_set('maintenance', 'Installing apt packages')
     apt_update(fatal=True)
-    apt_install(
-        filter_installed_packages(CEILOMETER_AGENT_PACKAGES),
-        fatal=True)
-    # Call apt_install a 2nd time to allow packages which are enabled
-    # for specific OpenStack version to be installed . This is because
-    # Openstack version for a subordinate should be derived from the
-    # version of an installed package rather than relying on
-    # openstack-origin which would not be present in a subordinate.
+    # Install -common package so we get accurate version determination
+    apt_install(filter_installed_packages(['ceilometer-common']),
+                fatal=True)
     apt_install(
         filter_installed_packages(get_packages()),
         fatal=True)

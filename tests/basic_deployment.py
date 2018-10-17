@@ -66,7 +66,8 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             {'name': 'keystone'},
             {'name': 'glance'},  # to satisfy workload status
             {'name': 'ceilometer'},
-            {'name': 'nova-compute'}
+            {'name': 'nova-compute'},
+            {'name': 'nova-cloud-controller'},
         ]
         if self._get_openstack_release() >= self.xenial_pike:
             other_services.extend([
@@ -98,7 +99,14 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             'glance:identity-service': 'keystone:identity-service',
             'glance:shared-db': 'percona-cluster:shared-db',
             'glance:amqp': 'rabbitmq-server:amqp',
-            'nova-compute:image-service': 'glance:image-service'
+            'nova-compute:image-service': 'glance:image-service',
+            'nova-cloud-controller:shared-db': 'percona-cluster:shared-db',
+            'nova-cloud-controller:amqp': 'rabbitmq-server:amqp',
+            'nova-cloud-controller:identity-service': 'keystone:'
+                                                      'identity-service',
+            'nova-cloud-controller:cloud-compute': 'nova-compute:'
+                                                   'cloud-compute',
+            'nova-cloud-controller:image-service': 'glance:image-service',
         }
         if self._get_openstack_release() >= self.xenial_pike:
             additional_relations = {
