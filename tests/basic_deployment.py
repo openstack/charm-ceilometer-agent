@@ -616,14 +616,6 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
                 'user_domain_name': user_domain_name,
                 'username': 'ceilometer',
                 'password': ks_rel['{}_password'.format(ks_key_prefix)]}
-            expected['keystone_authtoken'] = {
-                'auth_uri': auth_uri,
-                'auth_type': 'password',
-                'project_domain_name': project_domain_name,
-                'user_domain_name': user_domain_name,
-                'project_name': 'services',
-                'username': 'ceilometer',
-                'password': ks_rel['{}_password'.format(ks_key_prefix)]}
 
         for section, pairs in expected.iteritems():
             ret = u.validate_config_data(unit, conf, section, pairs)
