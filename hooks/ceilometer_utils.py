@@ -43,6 +43,7 @@ from charmhelpers.fetch import (
     apt_upgrade,
     apt_purge,
     apt_autoremove,
+    apt_mark,
     filter_missing_packages,
 )
 
@@ -59,6 +60,10 @@ CEILOMETER_AGENT_PACKAGES = [
 PY3_PACKAGES = [
     'python3-ceilometer',
     'python3-memcache',
+]
+
+HELD_PACKAGES = [
+    'python-memcache',
 ]
 
 VERSION_PACKAGE = 'ceilometer-common'
@@ -147,7 +152,6 @@ def determine_purge_packages():
     if release >= 'rocky':
         pkgs = [p for p in CEILOMETER_AGENT_PACKAGES
                 if p.startswith('python-')]
-        pkgs.append('python-memcache')
         return pkgs
     return []
 
@@ -159,9 +163,21 @@ def remove_old_packages():
     '''
     installed_packages = filter_missing_packages(determine_purge_packages())
     if installed_packages:
+        apt_mark(filter_missing_packages(determine_held_packages()),
+                 'auto')
         apt_purge(installed_packages, fatal=True)
         apt_autoremove(purge=True, fatal=True)
     return bool(installed_packages)
+
+
+def determine_held_packages():
+    '''Return a list of packages to mark as candidates for removal
+    for the current OS release'''
+    release = CompareOpenStackReleases(get_os_codename_package(
+        'ceilometer-common', fatal=False) or 'icehouse')
+    if release >= 'rocky':
+        return HELD_PACKAGES
+    return []
 
 
 def restart_map():

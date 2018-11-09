@@ -134,7 +134,7 @@ class CeilometerUtilsTest(CharmTestCase):
         self.get_os_codename_package.return_value = 'rocky'
         self.assertEqual(utils.determine_purge_packages(),
                          [p for p in utils.CEILOMETER_AGENT_PACKAGES
-                          if p.startswith('python-')] + ['python-memcache'])
+                          if p.startswith('python-')])
 
     def test_get_packages_queens(self):
         self.get_os_codename_package.return_value = 'queens'
