@@ -85,7 +85,7 @@ CONFIG_FILES = {
         'hook_contexts': [
             CeilometerServiceContext(ssl_dir=CEILOMETER_CONF_DIR),
             context.InternalEndpointContext(),
-            context.MemcacheContext()],
+            context.MemcacheContext(package='ceilometer-common')],
         'services': CEILOMETER_AGENT_SERVICES
     },
 }
@@ -114,7 +114,9 @@ def register_configs():
         configs.register(conf, CONFIG_FILES[conf]['hook_contexts'])
 
     if enable_memcache(release=release):
-        configs.register(MEMCACHED_CONF, [context.MemcacheContext()])
+        configs.register(
+            MEMCACHED_CONF,
+            [context.MemcacheContext(package='ceilometer-common')])
 
     return configs
 

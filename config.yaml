@@ -1,33 +1,4 @@
 options:
-  openstack-origin:
-    type: string
-    default: distro
-    description: |
-      Repository from which to install. May be one of the following:
-      distro (default), ppa:somecustom/ppa, a deb url sources entry,
-      or a supported Ubuntu Cloud Archive e.g.
-      .
-      cloud:<series>-<openstack-release>
-      cloud:<series>-<openstack-release>/updates
-      cloud:<series>-<openstack-release>/staging
-      cloud:<series>-<openstack-release>/proposed
-      .
-      See https://wiki.ubuntu.com/OpenStack/CloudArchive for info on which
-      cloud archives are available and supported.
-      .
-      NOTE: updating this setting to a source that is known to provide
-      a later version of OpenStack will trigger a software upgrade unless
-      action-managed-upgrade is set to True.
-  action-managed-upgrade:
-    type: boolean
-    default: False
-    description: |
-      If True enables openstack upgrades for this charm via juju actions.
-      You will still need to set openstack-origin to the new repository but
-      instead of an upgrade running automatically across all units, it will
-      wait for you to execute the openstack-upgrade action for this charm on
-      each unit. If False it will revert to existing behavior of upgrading
-      all units on config change.
   nagios_context:
     type: string
     default: "juju"

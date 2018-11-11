@@ -14,7 +14,7 @@
 
 import sys
 
-from mock import MagicMock, patch, call
+from mock import MagicMock, patch
 
 # python-apt is not installed as part of test-requirements but is imported by
 # some charmhelpers modules so create a fake import.
@@ -80,30 +80,6 @@ class CeilometerUtilsTest(CharmTestCase):
             '/etc/ceilometer/ceilometer.conf': ['ceilometer-agent-compute'],
             '/etc/memcached.conf': ['memcached']}
         self.assertEqual(restart_map, expect)
-
-    def test_do_openstack_upgrade(self):
-        self.config.side_effect = self.test_config.get
-        self.test_config.set('openstack-origin', 'cloud:precise-havana')
-        self.get_os_codename_install_source.return_value = 'havana'
-        self.get_os_codename_package.return_value = 'icehouse'
-        configs = MagicMock()
-        utils.do_openstack_upgrade(configs)
-        configs.set_release.assert_called_with(openstack_release='havana')
-        self.assertTrue(self.log.called)
-        self.apt_update.assert_called_with(fatal=True)
-        dpkg_opts = [
-            '--option', 'Dpkg::Options::=--force-confnew',
-            '--option', 'Dpkg::Options::=--force-confdef',
-        ]
-        self.apt_install.assert_has_calls([
-            call(packages=utils.CEILOMETER_AGENT_PACKAGES,
-                 options=dpkg_opts, fatal=True),
-            call(['python-ceilometer', 'ceilometer-common',
-                  'ceilometer-agent-compute'], fatal=True),
-        ])
-        self.configure_installation_source.assert_called_with(
-            'cloud:precise-havana'
-        )
 
     def test_assess_status(self):
         with patch.object(utils, 'assess_status_func') as asf:

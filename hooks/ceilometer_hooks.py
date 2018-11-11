@@ -21,7 +21,6 @@ from charmhelpers.fetch import (
     apt_update
 )
 from charmhelpers.core.hookenv import (
-    config,
     Hooks, UnregisteredHookError,
     log,
     is_relation_made,
@@ -30,11 +29,7 @@ from charmhelpers.core.hookenv import (
     relation_ids,
 )
 from charmhelpers.contrib.openstack.utils import (
-    configure_installation_source,
-    openstack_upgrade_available,
     pausable_restart_on_change as restart_on_change,
-    os_release,
-    CompareOpenStackReleases,
     is_unit_paused_set,
     series_upgrade_prepare,
     series_upgrade_complete,
@@ -44,7 +39,6 @@ from ceilometer_utils import (
     services,
     register_configs,
     NOVA_SETTINGS,
-    do_openstack_upgrade,
     assess_status,
     get_packages,
     pause_unit_helper,
@@ -58,8 +52,6 @@ CONFIGS = register_configs()
 
 @hooks.hook('install.real')
 def install():
-    origin = config('openstack-origin')
-    configure_installation_source(origin)
     status_set('maintenance', 'Installing apt packages')
     apt_update(fatal=True)
     # Install -common package so we get accurate version determination
@@ -95,6 +87,7 @@ def upgrade_charm():
         nova_ceilometer_joined(rid)
 
 
+@hooks.hook('nova-ceilometer-relation-changed')
 @hooks.hook('config-changed')
 @restart_on_change(restart_map(), stopstart=True)
 def config_changed():
@@ -104,19 +97,7 @@ def config_changed():
         log("Unit is pause or upgrading. Skipping config_changed", "WARN")
         return
 
-    if not config('action-managed-upgrade'):
-        if openstack_upgrade_available('ceilometer-common'):
-            status_set('maintenance', 'Running openstack upgrade')
-            do_openstack_upgrade(CONFIGS)
-        else:
-            # It's possible that a partial upgrade has occurred if nova-compute
-            # was upgraded first. If > mitaka call apt_install to allow
-            # packages which are enabled for specific OpenStack version to be
-            # installed if they haven't been already.
-            os_rel = os_release('ceilometer-common', reset_cache=True)
-            if (CompareOpenStackReleases(os_rel) >= 'mitaka'):
-                apt_install(filter_installed_packages(get_packages()),
-                            fatal=True)
+    apt_install(filter_installed_packages(get_packages()), fatal=True)
     if is_relation_made('nrpe-external-master'):
         update_nrpe_config()
     CONFIGS.write_all()
