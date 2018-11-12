@@ -2,5 +2,3 @@ pause:
     description: Pause the ceilometer-agent unit.  This action will stop ceilometer-agent services.
 resume:
     descrpition: Resume the ceilometer-agent unit.  This action will start ceilometer-agent services.
-openstack-upgrade:
-  description: Perform openstack upgrades. Config option action-managed-upgrade must be set to True.
