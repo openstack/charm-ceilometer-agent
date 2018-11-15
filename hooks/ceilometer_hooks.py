@@ -28,6 +28,9 @@ from charmhelpers.core.hookenv import (
     status_set,
     relation_ids,
 )
+from charmhelpers.core.host import (
+    service_restart
+)
 from charmhelpers.contrib.openstack.utils import (
     pausable_restart_on_change as restart_on_change,
     is_unit_paused_set,
@@ -43,6 +46,7 @@ from ceilometer_utils import (
     get_packages,
     pause_unit_helper,
     resume_unit_helper,
+    remove_old_packages,
 )
 from charmhelpers.contrib.charmsupport import nrpe
 
@@ -81,6 +85,11 @@ def upgrade_charm():
     apt_install(
         filter_installed_packages(get_packages()),
         fatal=True)
+    packages_removed = remove_old_packages()
+    if packages_removed and not is_unit_paused_set():
+        log("Package purge detected, restarting services", "INFO")
+        for s in services():
+            service_restart(s)
     # NOTE(jamespage): Ensure any changes to nova presented data are made
     #                  during charm upgrades.
     for rid in relation_ids('nova-ceilometer'):

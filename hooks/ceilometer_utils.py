@@ -152,6 +152,18 @@ def determine_purge_packages():
     return []
 
 
+def remove_old_packages():
+    '''Purge any packages that need ot be removed.
+
+    :returns: bool Whether packages were removed.
+    '''
+    installed_packages = filter_missing_packages(determine_purge_packages())
+    if installed_packages:
+        apt_purge(installed_packages, fatal=True)
+        apt_autoremove(purge=True, fatal=True)
+    return bool(installed_packages)
+
+
 def restart_map():
     '''
     Determine the correct resource map to be passed to
@@ -213,10 +225,7 @@ def do_openstack_upgrade(configs):
     # openstack-origin which would not be present in a subordinate.
     apt_install(get_packages(), fatal=True)
 
-    installed_packages = filter_missing_packages(determine_purge_packages())
-    if installed_packages:
-        apt_purge(installed_packages, fatal=True)
-        apt_autoremove(purge=True, fatal=True)
+    remove_old_packages()
 
     # set CONFIGS to load templates from new release
     configs.set_release(openstack_release=new_os_rel)
