@@ -36,8 +36,10 @@ def loopback_devices():
     '''
     loopbacks = {}
     cmd = ['losetup', '-a']
-    devs = [d.strip().split(' ') for d in
-            check_output(cmd).splitlines() if d != '']
+    output = check_output(cmd)
+    if six.PY3:
+        output = output.decode('utf-8')
+    devs = [d.strip().split(' ') for d in output.splitlines() if d != '']
     for dev, _, f in devs:
         loopbacks[dev.replace(':', '')] = re.search(r'\((\S+)\)', f).groups()[0]
     return loopbacks

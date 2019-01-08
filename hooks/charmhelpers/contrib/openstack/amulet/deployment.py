@@ -168,7 +168,8 @@ class OpenStackAmuletDeployment(AmuletDeployment):
                          'nrpe', 'openvswitch-odl', 'neutron-api-odl',
                          'odl-controller', 'cinder-backup', 'nexentaedge-data',
                          'nexentaedge-iscsi-gw', 'nexentaedge-swift-gw',
-                         'cinder-nexentaedge', 'nexentaedge-mgmt']))
+                         'cinder-nexentaedge', 'nexentaedge-mgmt',
+                         'ceilometer-agent']))
 
         if self.openstack:
             for svc in services:
@@ -292,7 +293,9 @@ class OpenStackAmuletDeployment(AmuletDeployment):
             ('artful', None): self.artful_pike,
             ('bionic', None): self.bionic_queens,
             ('bionic', 'cloud:bionic-rocky'): self.bionic_rocky,
+            ('bionic', 'cloud:bionic-stein'): self.bionic_stein,
             ('cosmic', None): self.cosmic_rocky,
+            ('disco', None): self.disco_stein,
         }
         return releases[(self.series, self.openstack)]
 
