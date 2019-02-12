@@ -9,5 +9,5 @@ include:
     - contrib.hahelpers
     - contrib.storage.linux
     - contrib.network.ip
-    - contrib.python.packages
+    - contrib.python
     - contrib.charmsupport
