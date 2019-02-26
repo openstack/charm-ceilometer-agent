@@ -27,6 +27,7 @@ from charmhelpers.core.hookenv import (
     relation_set,
     status_set,
     relation_ids,
+    config,
 )
 from charmhelpers.core.host import (
     service_restart
@@ -136,6 +137,23 @@ def post_series_upgrade():
     log("Running complete series upgrade hook", "INFO")
     series_upgrade_complete(
         resume_unit_helper, CONFIGS)
+
+
+@hooks.hook('amqp-relation-joined')
+def amqp_joined(relation_id=None):
+    relation_set(relation_id=relation_id,
+                 username=config('rabbit-user'),
+                 vhost=config('rabbit-vhost'))
+
+
+@hooks.hook('amqp-relation-changed',
+            'amqp-relation-departed')
+@restart_on_change(restart_map())
+def amqp_changed():
+    if 'amqp' not in CONFIGS.complete_contexts():
+        log('amqp relation incomplete. Peer not ready?')
+        return
+    CONFIGS.write_all()
 
 
 if __name__ == '__main__':

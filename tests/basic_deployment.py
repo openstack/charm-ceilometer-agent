@@ -111,6 +111,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
             'nova-cloud-controller:cloud-compute': 'nova-compute:'
                                                    'cloud-compute',
             'nova-cloud-controller:image-service': 'glance:image-service',
+            'ceilometer-agent:amqp': 'rabbitmq-server:amqp',
         }
         if self._get_openstack_release() >= self.xenial_pike:
             additional_relations = {

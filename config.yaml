@@ -22,3 +22,11 @@ options:
       Openstack mostly defaults to using public endpoints for
       internal communication between services. If set to True this option will
       configure services to use internal endpoints where possible.
+  rabbit-user:
+    type: string
+    default: ceilometer
+    description: Username to request access on rabbitmq-server.
+  rabbit-vhost:
+    type: string
+    default: openstack
+    description: RabbitMQ virtual host to request access on rabbitmq-server.

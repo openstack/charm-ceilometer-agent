@@ -89,6 +89,7 @@ CONFIG_FILES = {
     CEILOMETER_CONF: {
         'hook_contexts': [
             CeilometerServiceContext(ssl_dir=CEILOMETER_CONF_DIR),
+            context.AMQPContext(ssl_dir=CEILOMETER_CONF_DIR),
             context.InternalEndpointContext(),
             context.MemcacheContext(package='ceilometer-common')],
         'services': CEILOMETER_AGENT_SERVICES
@@ -98,6 +99,7 @@ TEMPLATES = 'templates'
 
 REQUIRED_INTERFACES = {
     'ceilometer': ['ceilometer-service'],
+    'messaging': ['amqp'],
 }
 
 

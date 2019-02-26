@@ -34,3 +34,5 @@ requires:
     scope: container
   ceilometer-service:
     interface: ceilometer
+  amqp:
+    interface: rabbitmq
