@@ -2,6 +2,7 @@ Overview
 --------
 
 This charm provides the Ceilometer Compute Agent for OpenStack. 
-It must be deployed in each nova-compute node.
-See Ceilometer charm (lp:~yolanda.robla/charms/precise/ceilometer/trunk) 
-for usage details.
+
+It must be deployed as a subordinate to each nova-compute node.
+
+See the Ceilometer charm for usage details.
