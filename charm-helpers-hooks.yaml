@@ -1,5 +1,5 @@
 repo: https://github.com/juju/charm-helpers
-destination: hooks/charmhelpers
+destination: charmhelpers
 include:
     - core
     - osplatform

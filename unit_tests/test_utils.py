@@ -30,7 +30,7 @@ def mock_open(filename, contents=None):
             return io.StringIO(contents)
         else:
             return open(*args)
-    with patch('__builtin__.open', mock_file):
+    with patch('builtins.open', mock_file):
         yield
 
 
@@ -63,7 +63,7 @@ def get_default_config():
     '''
     default_config = {}
     config = load_config()
-    for k, v in config.iteritems():
+    for k, v in config.items():
         if 'default' in v:
             default_config[k] = v['default']
         else:

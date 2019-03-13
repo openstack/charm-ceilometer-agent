@@ -193,7 +193,7 @@ def restart_map():
     release = (get_os_codename_package('ceilometer-common', fatal=False) or
                'icehouse')
     _map = {}
-    for f, ctxt in CONFIG_FILES.iteritems():
+    for f, ctxt in CONFIG_FILES.items():
         svcs = []
         for svc in ctxt['services']:
             svcs.append(svc)
