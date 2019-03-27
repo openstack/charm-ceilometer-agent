@@ -78,7 +78,7 @@ class CeilometerServiceContext(OSContextGenerator):
                     if conf.get('rabbit_ssl_ca') is not None:
                         ca_path = os.path.join(
                             self.ssl_dir, 'rabbit-client-ca.pem')
-                        with open(ca_path, 'wt') as fh:
+                        with open(ca_path, 'wb') as fh:
                             fh.write(base64.b64decode(conf['rabbit_ssl_ca']))
                             conf['rabbit_ssl_ca'] = ca_path
                     return conf
