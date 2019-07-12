@@ -65,7 +65,7 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         # Note: ceilometer-agent becomes a subordinate of nova-compute
         this_service = {'name': 'ceilometer-agent'}
         other_services = [
-            {'name': 'percona-cluster', 'constraints': {'mem': '3072M'}},
+            self.get_percona_service_entry(),
             {'name': 'rabbitmq-server'},
             {'name': 'keystone'},
             {'name': 'glance'},  # to satisfy workload status
