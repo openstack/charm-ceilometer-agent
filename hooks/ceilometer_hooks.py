@@ -160,6 +160,12 @@ def amqp_joined(relation_id=None):
                  vhost=config('rabbit-vhost'))
 
 
+@hooks.hook('update-status')
+def dummy_update_status():
+    """Dummy function to silence missing hook log entry"""
+    pass
+
+
 @hooks.hook('amqp-relation-changed',
             'amqp-relation-departed')
 @restart_on_change(restart_map())
