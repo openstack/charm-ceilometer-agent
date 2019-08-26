@@ -76,7 +76,8 @@ class CeiloAgentBasicDeployment(OpenStackAmuletDeployment):
         if self._get_openstack_release() >= self.xenial_pike:
             other_services.extend([
                 {'name': 'gnocchi'},
-                {'name': 'memcached', 'location': 'cs:memcached'},
+                {'name': 'memcached',
+                 'location': 'cs:~memcached-team/memcached'},
                 {'name': 'ceph-mon', 'units': 3},
                 {'name': 'ceph-osd', 'units': 3,
                  'storage': {'osd-devices': 'cinder,10G'}}])
