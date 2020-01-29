@@ -1,0 +1,105 @@
+options:
+  source: &source cloud:xenial-ocata
+
+series: xenial
+
+machines:
+  0: {}
+  1: {}
+  2: {}
+  3: {}
+  4: {}
+  5: {}
+  6: {}
+  7: {}
+
+applications:
+  percona-cluster:
+    charm: cs:~openstack-charmers-next/percona-cluster
+    num_units: 1
+    to:
+      - '0'
+  rabbitmq-server:
+    charm: cs:~openstack-charmers-next/rabbitmq-server
+    num_units: 1
+    to:
+      - '1'
+  mongodb:
+    charm: cs:xenial/mongodb
+    num_units: 1
+    to:
+      - '2'
+  keystone:
+    charm: cs:~openstack-charmers-next/keystone
+    num_units: 1
+    options:
+      openstack-origin: *source
+    to:
+      - '3'
+  glance:
+    charm: cs:~openstack-charmers-next/glance
+    num_units: 1
+    options:
+      openstack-origin: *source
+    to:
+      - '4'
+  nova-cloud-controller:
+    charm: cs:~openstack-charmers-next/nova-cloud-controller
+    num_units: 1
+    options:
+      openstack-origin: *source
+    to:
+      - '5'
+  nova-compute:
+    charm: cs:~openstack-charmers-next/nova-compute
+    num_units: 1
+    options:
+      openstack-origin: *source
+    to:
+      - '6'
+  ceilometer:
+    charm: cs:~openstack-charmers-next/ceilometer
+    num_units: 1
+    options:
+      openstack-origin: *source
+    to:
+      - '7'
+  ceilometer-agent: {}
+  
+relations:
+- - 'ceilometer:amqp'
+  - 'rabbitmq-server:amqp'
+- - 'ceilometer:identity-notifications'
+  - 'keystone:identity-notifications'
+- - 'ceilometer:ceilometer-service'
+  - 'ceilometer-agent:ceilometer-service'
+- - 'ceilometer:identity-service'
+  - 'keystone:identity-service'
+- - 'ceilometer:shared-db'
+  - 'mongodb:database'
+- - 'keystone:shared-db'
+  - 'percona-cluster:shared-db'
+- - 'ceilometer-agent:amqp'
+  - 'rabbitmq-server:amqp'
+- - 'nova-compute:nova-ceilometer'
+  - 'ceilometer-agent:nova-ceilometer'
+- - 'nova-compute:amqp'
+  - 'rabbitmq-server:amqp'
+- - 'glance:identity-service'
+  - 'keystone:identity-service'
+- - 'glance:shared-db'
+  - 'percona-cluster:shared-db'
+- - 'glance:amqp'
+  - 'rabbitmq-server:amqp'
+- - 'nova-compute:image-service'
+  - 'glance:image-service'
+- - 'nova-cloud-controller:shared-db'
+  - 'percona-cluster:shared-db'
+- - 'nova-cloud-controller:amqp'
+  - 'rabbitmq-server:amqp'
+- - 'nova-cloud-controller:identity-service'
+  - 'keystone:identity-service'
+- - 'nova-cloud-controller:cloud-compute'
+  - 'nova-compute:cloud-compute'
+- - 'nova-cloud-controller:image-service'
+  - 'glance:image-service'
