@@ -25,6 +25,10 @@ from subprocess import check_call, CalledProcessError
 
 import six
 
+from charmhelpers.contrib.openstack.audits.openstack_security_guide import (
+    _config_ini as config_ini
+)
+
 from charmhelpers.fetch import (
     apt_install,
     filter_installed_packages,
@@ -729,6 +733,10 @@ class AMQPContext(OSContextGenerator):
         notification_format = conf.get('notification-format', None)
         if notification_format:
             ctxt['notification_format'] = notification_format
+
+        notification_topics = conf.get('notification-topics', None)
+        if notification_topics:
+            ctxt['notification_topics'] = notification_topics
 
         send_notifications_to_logs = conf.get('send-notifications-to-logs', None)
         if send_notifications_to_logs:
@@ -1940,7 +1948,7 @@ class VolumeAPIContext(InternalEndpointContext):
         as well as the catalog_info string that would be supplied. Returns
         a dict containing the volume_api_version and the volume_catalog_info.
         """
-        rel = os_release(self.pkg, base='icehouse')
+        rel = os_release(self.pkg)
         version = '2'
         if CompareOpenStackReleases(rel) >= 'pike':
             version = '3'
@@ -2140,7 +2148,7 @@ class VersionsContext(OSContextGenerator):
         self.pkg = pkg
 
     def __call__(self):
-        ostack = os_release(self.pkg, base='icehouse')
+        ostack = os_release(self.pkg)
         osystem = lsb_release()['DISTRIB_CODENAME'].lower()
         return {
             'openstack_release': ostack,
@@ -2177,9 +2185,214 @@ class LogrotateContext(OSContextGenerator):
 class HostInfoContext(OSContextGenerator):
     """Context to provide host information."""
 
+    def __init__(self, use_fqdn_hint_cb=None):
+        """Initialize HostInfoContext
+
+        :param use_fqdn_hint_cb: Callback whose return value used to populate
+                                 `use_fqdn_hint`
+        :type use_fqdn_hint_cb: Callable[[], bool]
+        """
+        # Store callback used to get hint for whether FQDN should be used
+
+        # Depending on the workload a charm manages, the use of FQDN vs.
+        # shortname may be a deploy-time decision, i.e. behaviour can not
+        # change on charm upgrade or post-deployment configuration change.
+
+        # The hint is passed on as a flag in the context to allow the decision
+        # to be made in the Jinja2 configuration template.
+        self.use_fqdn_hint_cb = use_fqdn_hint_cb
+
+    def _get_canonical_name(self, name=None):
+        """Get the official FQDN of the host
+
+        The implementation of ``socket.getfqdn()`` in the standard Python
+        library does not exhaust all methods of getting the official name
+        of a host ref Python issue https://bugs.python.org/issue5004
+
+        This function mimics the behaviour of a call to ``hostname -f`` to
+        get the official FQDN but returns an empty string if it is
+        unsuccessful.
+
+        :param name: Shortname to get FQDN on
+        :type name: Optional[str]
+        :returns: The official FQDN for host or empty string ('')
+        :rtype: str
+        """
+        name = name or socket.gethostname()
+        fqdn = ''
+
+        if six.PY2:
+            exc = socket.error
+        else:
+            exc = OSError
+
+        try:
+            addrs = socket.getaddrinfo(
+                name, None, 0, socket.SOCK_DGRAM, 0, socket.AI_CANONNAME)
+        except exc:
+            pass
+        else:
+            for addr in addrs:
+                if addr[3]:
+                    if '.' in addr[3]:
+                        fqdn = addr[3]
+                    break
+        return fqdn
+
     def __call__(self):
+        name = socket.gethostname()
         ctxt = {
-            'host_fqdn': socket.getfqdn(),
-            'host': socket.gethostname(),
+            'host_fqdn': self._get_canonical_name(name) or name,
+            'host': name,
+            'use_fqdn_hint': (
+                self.use_fqdn_hint_cb() if self.use_fqdn_hint_cb else False)
         }
         return ctxt
+
+
+def validate_ovs_use_veth(*args, **kwargs):
+    """Validate OVS use veth setting for dhcp agents
+
+    The ovs_use_veth setting is considered immutable as it will break existing
+    deployments. Historically, we set ovs_use_veth=True in dhcp_agent.ini. It
+    turns out this is no longer necessary. Ideally, all new deployments would
+    have this set to False.
+
+    This function validates that the config value does not conflict with
+    previously deployed settings in dhcp_agent.ini.
+
+    See LP Bug#1831935 for details.
+
+    :returns: Status state and message
+    :rtype: Union[(None, None), (string, string)]
+    """
+    existing_ovs_use_veth = (
+        DHCPAgentContext.get_existing_ovs_use_veth())
+    config_ovs_use_veth = DHCPAgentContext.parse_ovs_use_veth()
+
+    # Check settings are set and not None
+    if existing_ovs_use_veth is not None and config_ovs_use_veth is not None:
+        # Check for mismatch between existing config ini and juju config
+        if existing_ovs_use_veth != config_ovs_use_veth:
+            # Stop the line to avoid breakage
+            msg = (
+                "The existing setting for dhcp_agent.ini ovs_use_veth, {}, "
+                "does not match the juju config setting, {}. This may lead to "
+                "VMs being unable to receive a DHCP IP. Either change the "
+                "juju config setting or dhcp agents may need to be recreated."
+                .format(existing_ovs_use_veth, config_ovs_use_veth))
+            log(msg, ERROR)
+            return (
+                "blocked",
+                "Mismatched existing and configured ovs-use-veth. See log.")
+
+    # Everything is OK
+    return None, None
+
+
+class DHCPAgentContext(OSContextGenerator):
+
+    def __call__(self):
+        """Return the DHCPAGentContext.
+
+        Return all DHCP Agent INI related configuration.
+        ovs unit is attached to (as a subordinate) and the 'dns_domain' from
+        the neutron-plugin-api relations (if one is set).
+
+        :returns: Dictionary context
+        :rtype: Dict
+        """
+
+        ctxt = {}
+        dnsmasq_flags = config('dnsmasq-flags')
+        if dnsmasq_flags:
+            ctxt['dnsmasq_flags'] = config_flags_parser(dnsmasq_flags)
+        ctxt['dns_servers'] = config('dns-servers')
+
+        neutron_api_settings = NeutronAPIContext()()
+
+        ctxt['debug'] = config('debug')
+        ctxt['instance_mtu'] = config('instance-mtu')
+        ctxt['ovs_use_veth'] = self.get_ovs_use_veth()
+
+        ctxt['enable_metadata_network'] = config('enable-metadata-network')
+        ctxt['enable_isolated_metadata'] = config('enable-isolated-metadata')
+
+        if neutron_api_settings.get('dns_domain'):
+            ctxt['dns_domain'] = neutron_api_settings.get('dns_domain')
+
+        # Override user supplied config for these plugins as these settings are
+        # mandatory
+        if config('plugin') in ['nvp', 'nsx', 'n1kv']:
+            ctxt['enable_metadata_network'] = True
+            ctxt['enable_isolated_metadata'] = True
+
+        return ctxt
+
+    @staticmethod
+    def get_existing_ovs_use_veth():
+        """Return existing ovs_use_veth setting from dhcp_agent.ini.
+
+        :returns: Boolean value of existing ovs_use_veth setting or None
+        :rtype: Optional[Bool]
+        """
+        DHCP_AGENT_INI = "/etc/neutron/dhcp_agent.ini"
+        existing_ovs_use_veth = None
+        # If there is a dhcp_agent.ini file read the current setting
+        if os.path.isfile(DHCP_AGENT_INI):
+            # config_ini does the right thing and returns None if the setting is
+            # commented.
+            existing_ovs_use_veth = (
+                config_ini(DHCP_AGENT_INI)["DEFAULT"].get("ovs_use_veth"))
+        # Convert to Bool if necessary
+        if isinstance(existing_ovs_use_veth, six.string_types):
+            return bool_from_string(existing_ovs_use_veth)
+        return existing_ovs_use_veth
+
+    @staticmethod
+    def parse_ovs_use_veth():
+        """Parse the ovs-use-veth config setting.
+
+        Parse the string config setting for ovs-use-veth and return a boolean
+        or None.
+
+        bool_from_string will raise a ValueError if the string is not falsy or
+        truthy.
+
+        :raises: ValueError for invalid input
+        :returns: Boolean value of ovs-use-veth or None
+        :rtype: Optional[Bool]
+        """
+        _config = config("ovs-use-veth")
+        # An unset parameter returns None. Just in case we will also check for
+        # an empty string: "". Ironically, (the problem we are trying to avoid)
+        # "False" returns True and "" returns False.
+        if _config is None or not _config:
+            # Return None
+            return
+        # bool_from_string handles many variations of true and false strings
+        # as well as upper and lowercases including:
+        # ['y', 'yes', 'true', 't', 'on', 'n', 'no', 'false', 'f', 'off']
+        return bool_from_string(_config)
+
+    def get_ovs_use_veth(self):
+        """Return correct ovs_use_veth setting for use in dhcp_agent.ini.
+
+        Get the right value from config or existing dhcp_agent.ini file.
+        Existing has precedence. Attempt to default to "False" without
+        disrupting existing deployments. Handle existing deployments and
+        upgrades safely. See LP Bug#1831935
+
+        :returns: Value to use for ovs_use_veth setting
+        :rtype: Bool
+        """
+        _existing = self.get_existing_ovs_use_veth()
+        if _existing is not None:
+            return _existing
+
+        _config = self.parse_ovs_use_veth()
+        if _config is None:
+            # New better default
+            return False
+        else:
+            return _config
