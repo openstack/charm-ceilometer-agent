@@ -23,7 +23,7 @@ machines:
 
 applications:
   percona-cluster:
-    charm: cs:~openstack-charmers-next/percona-cluster
+    charm: cs:percona-cluster
     num_units: 1
     options:
       max-connections: 1000
@@ -31,7 +31,7 @@ applications:
     to:
       - '0'
   rabbitmq-server:
-    charm: cs:~openstack-charmers-next/rabbitmq-server
+    charm: cs:rabbitmq-server
     num_units: 1
     to:
       - '1'
@@ -41,7 +41,7 @@ applications:
     to:
       - '2'
   ceph-osd:
-    charm: cs:~openstack-charmers-next/ceph-osd
+    charm: cs:ceph-osd
     num_units: 3
     storage:
       osd-devices: 'cinder,10G'
@@ -52,7 +52,7 @@ applications:
       - '4'
       - '5'
   ceph-mon:
-    charm: cs:~openstack-charmers-next/ceph-mon
+    charm: cs:ceph-mon
     num_units: 3
     options:
       source: *source
@@ -61,49 +61,49 @@ applications:
       - '7'
       - '8'
   keystone:
-    charm: cs:~openstack-charmers-next/keystone
+    charm: cs:keystone
     num_units: 1
     options:
       openstack-origin: *source
     to:
       - '9'
   glance:
-    charm: cs:~openstack-charmers-next/glance
+    charm: cs:glance
     num_units: 1
     options:
       openstack-origin: *source
     to:
       - '10'
   nova-cloud-controller:
-    charm: cs:~openstack-charmers-next/nova-cloud-controller
+    charm: cs:nova-cloud-controller
     num_units: 1
     options:
       openstack-origin: *source
     to:
       - '11'
   nova-compute:
-    charm: cs:~openstack-charmers-next/nova-compute
+    charm: cs:nova-compute
     num_units: 1
     options:
       openstack-origin: *source
     to:
       - '12'
   ceilometer:
-    charm: cs:~openstack-charmers-next/ceilometer
+    charm: cs:ceilometer
     num_units: 1
     options:
       openstack-origin: *source
     to:
       - '13'
   gnocchi:
-    charm: cs:~openstack-charmers-next/gnocchi
+    charm: cs:gnocchi
     num_units: 1
     options:
       openstack-origin: *source
     to:
       - '14'
   placement:
-    charm: cs:~openstack-charmers-next/placement
+    charm: cs:placement
     num_units: 1
     constraints: mem=1G
     options:
