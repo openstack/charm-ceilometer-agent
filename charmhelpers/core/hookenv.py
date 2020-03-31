@@ -1093,7 +1093,7 @@ def status_set(workload_state, message):
 
     Use status-set to set the workload state with a message which is visible
     to the user via juju status. If the status-set command is not found then
-    assume this is juju < 1.23 and juju-log the message unstead.
+    assume this is juju < 1.23 and juju-log the message instead.
 
     workload_state -- valid juju workload state.
     message        -- status update message
@@ -1526,13 +1526,13 @@ def env_proxy_settings(selected_settings=None):
     """Get proxy settings from process environment variables.
 
     Get charm proxy settings from environment variables that correspond to
-    juju-http-proxy, juju-https-proxy and juju-no-proxy (available as of 2.4.2,
-    see lp:1782236) in a format suitable for passing to an application that
-    reacts to proxy settings passed as environment variables. Some applications
-    support lowercase or uppercase notation (e.g. curl), some support only
-    lowercase (e.g. wget), there are also subjectively rare cases of only
-    uppercase notation support. no_proxy CIDR and wildcard support also varies
-    between runtimes and applications as there is no enforced standard.
+    juju-http-proxy, juju-https-proxy juju-no-proxy (available as of 2.4.2, see
+    lp:1782236) and juju-ftp-proxy in a format suitable for passing to an
+    application that reacts to proxy settings passed as environment variables.
+    Some applications support lowercase or uppercase notation (e.g. curl), some
+    support only lowercase (e.g. wget), there are also subjectively rare cases
+    of only uppercase notation support. no_proxy CIDR and wildcard support also
+    varies between runtimes and applications as there is no enforced standard.
 
     Some applications may connect to multiple destinations and expose config
     options that would affect only proxy settings for a specific destination
