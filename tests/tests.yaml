@@ -11,13 +11,17 @@ gate_bundles:
   - bionic-rocky
   - bionic-stein
   - bionic-train
+  - bionic-ussuri
+  - focal-ussuri
 smoke_bundles:
   - bionic-train
 dev_bundles:
-  - bionic-train
 tests:
   - zaza.openstack.charm_tests.ceilometer.tests.CeilometerTest
 target_deploy_status:
   ceilometer:
     workload-status: blocked
     workload-status-message: "Run the ceilometer-upgrade action on the leader to initialize ceilometer and gnocchi"
+tests_options:
+  force_deploy:
+    - focal-ussuri
