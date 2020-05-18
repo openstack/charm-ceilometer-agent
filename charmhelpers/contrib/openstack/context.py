@@ -54,7 +54,8 @@ from charmhelpers.core.hookenv import (
     INFO,
     ERROR,
     status_set,
-    network_get_primary_address
+    network_get_primary_address,
+    WARNING,
 )
 
 from charmhelpers.core.sysctl import create as sysctl_create
@@ -2994,3 +2995,153 @@ class BondConfig(object):
                 'lacp-time': bond_config['lacp-time'],
             },
         }
+
+
+class SRIOVContext(OSContextGenerator):
+    """Provide context for configuring SR-IOV devices."""
+
+    class sriov_config_mode(enum.Enum):
+        """Mode in which SR-IOV is configured.
+
+        The configuration option identified by the ``numvfs_key`` parameter
+        is overloaded and defines in which mode the charm should interpret
+        the other SR-IOV-related configuration options.
+        """
+        auto = 'auto'
+        blanket = 'blanket'
+        explicit = 'explicit'
+
+    def _determine_numvfs(self, device, sriov_numvfs):
+        """Determine number of Virtual Functions (VFs) configured for device.
+
+        :param device: Object describing a PCI Network interface card (NIC)/
+        :type device: sriov_netplan_shim.pci.PCINetDevice
+        :param sriov_numvfs: Number of VFs requested for blanket configuration.
+        :type sriov_numvfs: int
+        :returns: Number of VFs to configure for device
+        :rtype: Optional[int]
+        """
+
+        def _get_capped_numvfs(requested):
+            """Get a number of VFs that does not exceed individual card limits.
+
+            Depending and make and model of NIC the number of VFs supported
+            vary.  Requesting more VFs than a card support would be a fatal
+            error, cap the requested number at the total number of VFs each
+            individual card supports.
+
+            :param requested: Number of VFs requested
+            :type requested: int
+            :returns: Number of VFs allowed
+            :rtype: int
+            """
+            actual = min(int(requested), int(device.sriov_totalvfs))
+            if actual < int(requested):
+                log('Requested VFs ({}) too high for device {}. Falling back '
+                    'to value supprted by device: {}'
+                    .format(requested, device.interface_name,
+                            device.sriov_totalvfs),
+                    level=WARNING)
+            return actual
+
+        if self._sriov_config_mode == self.sriov_config_mode.auto:
+            # auto-mode
+            #
+            # If device mapping configuration is present, return information
+            # on cards with mapping.
+            #
+            # If no device mapping configuration is present, return information
+            # for all cards.
+            #
+            # The maximum number of VFs supported by card will be used.
+            if (self._sriov_mapped_devices and
+                    device.interface_name not in self._sriov_mapped_devices):
+                log('SR-IOV configured in auto mode: No device mapping for {}'
+                    .format(device.interface_name),
+                    level=DEBUG)
+                return
+            return _get_capped_numvfs(device.sriov_totalvfs)
+        elif self._sriov_config_mode == self.sriov_config_mode.blanket:
+            # blanket-mode
+            #
+            # User has specified a number of VFs that should apply to all
+            # cards with support for VFs.
+            return _get_capped_numvfs(sriov_numvfs)
+        elif self._sriov_config_mode == self.sriov_config_mode.explicit:
+            # explicit-mode
+            #
+            # User has given a list of interface names and associated number of
+            # VFs
+            if device.interface_name not in self._sriov_config_devices:
+                log('SR-IOV configured in explicit mode: No device:numvfs '
+                    'pair for device {}, skipping.'
+                    .format(device.interface_name),
+                    level=DEBUG)
+                return
+            return _get_capped_numvfs(
+                self._sriov_config_devices[device.interface_name])
+        else:
+            raise RuntimeError('This should not be reached')
+
+    def __init__(self, numvfs_key=None, device_mappings_key=None):
+        """Initialize map from PCI devices and configuration options.
+
+        :param numvfs_key: Config key for numvfs (default: 'sriov-numvfs')
+        :type numvfs_key: Optional[str]
+        :param device_mappings_key: Config key for device mappings
+                                    (default: 'sriov-device-mappings')
+        :type device_mappings_key: Optional[str]
+        :raises: RuntimeError
+        """
+        numvfs_key = numvfs_key or 'sriov-numvfs'
+        device_mappings_key = device_mappings_key or 'sriov-device-mappings'
+
+        devices = pci.PCINetDevices()
+        charm_config = config()
+        sriov_numvfs = charm_config.get(numvfs_key) or ''
+        sriov_device_mappings = charm_config.get(device_mappings_key) or ''
+
+        # create list of devices from sriov_device_mappings config option
+        self._sriov_mapped_devices = [
+            pair.split(':', 1)[1]
+            for pair in sriov_device_mappings.split()
+        ]
+
+        # create map of device:numvfs from sriov_numvfs config option
+        self._sriov_config_devices = {
+            ifname: numvfs for ifname, numvfs in (
+                pair.split(':', 1) for pair in sriov_numvfs.split()
+                if ':' in sriov_numvfs)
+        }
+
+        # determine configuration mode from contents of sriov_numvfs
+        if sriov_numvfs == 'auto':
+            self._sriov_config_mode = self.sriov_config_mode.auto
+        elif sriov_numvfs.isdigit():
+            self._sriov_config_mode = self.sriov_config_mode.blanket
+        elif ':' in sriov_numvfs:
+            self._sriov_config_mode = self.sriov_config_mode.explicit
+        else:
+            raise RuntimeError('Unable to determine mode of SR-IOV '
+                               'configuration.')
+
+        self._map = {
+            device.interface_name: self._determine_numvfs(device, sriov_numvfs)
+            for device in devices.pci_devices
+            if device.sriov and
+            self._determine_numvfs(device, sriov_numvfs) is not None
+        }
+
+    def __call__(self):
+        """Provide SR-IOV context.
+
+        :returns: Map interface name: min(configured, max) virtual functions.
+        Example:
+           {
+               'eth0': 16,
+               'eth1': 32,
+               'eth2': 64,
+           }
+        :rtype: Dict[str,int]
+        """
+        return self._map
