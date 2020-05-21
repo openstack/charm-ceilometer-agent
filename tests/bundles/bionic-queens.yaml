@@ -19,7 +19,7 @@ machines:
 
 applications:
   percona-cluster:
-    charm: cs:~openstack-charmers-next/percona-cluster
+    charm: cs:~openstack-charmers/percona-cluster
     num_units: 1
     options:
       max-connections: 1000
@@ -27,7 +27,7 @@ applications:
     to:
       - '0'
   rabbitmq-server:
-    charm: cs:~openstack-charmers-next/rabbitmq-server
+    charm: cs:~openstack-charmers/rabbitmq-server
     num_units: 1
     to:
       - '1'
@@ -37,7 +37,7 @@ applications:
     to:
       - '2'
   ceph-osd:
-    charm: cs:~openstack-charmers-next/ceph-osd
+    charm: cs:~openstack-charmers/ceph-osd
     num_units: 3
     storage:
       osd-devices: 'cinder,10G'
@@ -46,39 +46,39 @@ applications:
       - '4'
       - '5'
   ceph-mon:
-    charm: cs:~openstack-charmers-next/ceph-mon
+    charm: cs:~openstack-charmers/ceph-mon
     num_units: 3
     to:
       - '6'
       - '7'
       - '8'
   keystone:
-    charm: cs:~openstack-charmers-next/keystone
+    charm: cs:~openstack-charmers/keystone
     num_units: 1
     to:
       - '9'
   glance:
-    charm: cs:~openstack-charmers-next/glance
+    charm: cs:~openstack-charmers/glance
     num_units: 1
     to:
       - '10'
   nova-cloud-controller:
-    charm: cs:~openstack-charmers-next/nova-cloud-controller
+    charm: cs:~openstack-charmers/nova-cloud-controller
     num_units: 1
     to:
       - '11'
   nova-compute:
-    charm: cs:~openstack-charmers-next/nova-compute
+    charm: cs:~openstack-charmers/nova-compute
     num_units: 1
     to:
       - '12'
   ceilometer:
-    charm: cs:~openstack-charmers-next/ceilometer
+    charm: cs:~openstack-charmers/ceilometer
     num_units: 1
     to:
       - '13'
   gnocchi:
-    charm: cs:~openstack-charmers-next/gnocchi
+    charm: cs:~openstack-charmers/gnocchi
     num_units: 1
     to:
       - '14'
