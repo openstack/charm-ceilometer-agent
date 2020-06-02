@@ -3,25 +3,26 @@ subordinate: true
 summary: Subordinate charm for deploying Ceilometer compute agent
 maintainer: OpenStack Charmers <openstack-charmers@lists.ubuntu.com>
 description: |
- Ceilometer project aims to become the infrastructure to collect measurements
- within OpenStack so that no two agents would need to be written to collect
- the same data. It's primary targets are monitoring and metering, but the
- framework should be easily expandable to collect for other needs. To that
- effect, Ceilometer should be able to share collected data with a variety of
- consumers.
- .
- This charm should be used in conjunction with the ceilometer and nova-compute
- charms to collect OpenStack measurements.
+  Ceilometer project aims to become the infrastructure to collect measurements
+  within OpenStack so that no two agents would need to be written to collect
+  the same data. It's primary targets are monitoring and metering, but the
+  framework should be easily expandable to collect for other needs. To that
+  effect, Ceilometer should be able to share collected data with a variety of
+  consumers.
+  .
+  This charm should be used in conjunction with the ceilometer and nova-compute
+  charms to collect OpenStack measurements.
 tags:
-  - openstack
-  - telemetry
-  - misc
+- openstack
+- telemetry
+- misc
 series:
-  - xenial
-  - bionic
-  - eoan
-  - focal
-  - trusty
+- xenial
+- bionic
+- eoan
+- focal
+- trusty
+- groovy
 provides:
   nrpe-external-master:
     interface: nrpe-external-master
