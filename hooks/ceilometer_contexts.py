@@ -49,6 +49,7 @@ class CeilometerServiceContext(OSContextGenerator):
         'service_port',
         'signing_dir',
         'api_version',
+        'polling_batch_size',
     ]
 
     optional_keys = [

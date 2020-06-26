@@ -56,7 +56,8 @@ class CeilometerContextsTest(CharmTestCase):
             'admin_tenant_name': 'admin',
             'admin_user': 'admin',
             'admin_password': 'password',
-            'metering_secret': 'secret'
+            'metering_secret': 'secret',
+            'polling_batch_size': 50,
         }
         self.test_relation.set(data)
         self.assertEqual(contexts.CeilometerServiceContext()(), data)
