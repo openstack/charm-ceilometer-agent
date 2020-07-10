@@ -16,6 +16,8 @@ gate_bundles:
 smoke_bundles:
   - bionic-train
 dev_bundles:
+  - focal-victoria
+  - groovy-victoria
 tests:
   - zaza.openstack.charm_tests.ceilometer.tests.CeilometerTest
 target_deploy_status:
@@ -24,4 +26,4 @@ target_deploy_status:
     workload-status-message: "Run the ceilometer-upgrade action on the leader to initialize ceilometer and gnocchi"
 tests_options:
   force_deploy:
-    - focal-ussuri
+    - groovy-victoria
