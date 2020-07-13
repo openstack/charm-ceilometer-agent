@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import json
-from mock import patch
+from unittest.mock import patch
 
 import ceilometer_utils
 

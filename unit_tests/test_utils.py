@@ -19,7 +19,7 @@ import yaml
 import io
 
 from contextlib import contextmanager
-from mock import patch
+from unittest.mock import patch
 
 
 @contextmanager
