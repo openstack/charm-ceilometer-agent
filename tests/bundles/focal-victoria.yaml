@@ -1,0 +1,241 @@
+variables:
+  openstack-origin: &openstack-origin cloud:focal-victoria
+
+series: focal
+
+comment:
+- 'machines section to decide order of deployment. database sooner = faster'
+machines:
+  '0':
+    constraints: mem=3072M
+  '1':
+    constraints: mem=3072M
+  '2':
+    constraints: mem=3072M
+  '3':
+  '4':
+    # machine for memcached; doesn't have a focal version yet.
+    series: bionic
+  '5':
+  '6':
+  '7':
+  '8':
+  '9':
+  '10':
+  '11':
+  '12':
+  '13':
+  '14':
+  '15':
+  '16':
+  '17':
+
+applications:
+
+  keystone-mysql-router:
+    charm: cs:~openstack-charmers-next/mysql-router
+  placement-mysql-router:
+    charm: cs:~openstack-charmers-next/mysql-router
+  glance-mysql-router:
+    charm: cs:~openstack-charmers-next/mysql-router
+  nova-cloud-controller-mysql-router:
+    charm: cs:~openstack-charmers-next/mysql-router
+  gnocchi-mysql-router:
+    charm: cs:~openstack-charmers-next/mysql-router
+
+  mysql-innodb-cluster:
+    charm: cs:~openstack-charmers-next/mysql-innodb-cluster
+    num_units: 3
+    options:
+      source: *openstack-origin
+    to:
+      - '0'
+      - '1'
+      - '2'
+
+  rabbitmq-server:
+    charm: cs:~openstack-charmers-next/rabbitmq-server
+    num_units: 1
+    options:
+      source: *openstack-origin
+    to:
+      - '3'
+
+  memcached:
+    charm: cs:~memcached-team/memcached
+    num_units: 1
+    # hold at bionic as no focal version of the charm yet
+    series: bionic
+    to:
+      - '4'
+
+  ceph-osd:
+    charm: cs:~openstack-charmers-next/ceph-osd
+    num_units: 3
+    options:
+      source: *openstack-origin
+    storage:
+      osd-devices: 'cinder,10G'
+    to:
+      - '5'
+      - '6'
+      - '7'
+
+  ceph-mon:
+    charm: cs:~openstack-charmers-next/ceph-mon
+    num_units: 3
+    options:
+      source: *openstack-origin
+    to:
+      - '8'
+      - '9'
+      - '10'
+
+  keystone:
+    charm: cs:~openstack-charmers-next/keystone
+    num_units: 1
+    options:
+      openstack-origin: *openstack-origin
+    to:
+      - '11'
+
+  glance:
+    charm: cs:~openstack-charmers-next/glance
+    num_units: 1
+    options:
+      openstack-origin: *openstack-origin
+    to:
+      - '12'
+
+  nova-cloud-controller:
+    charm: cs:~openstack-charmers-next/nova-cloud-controller
+    num_units: 1
+    options:
+      openstack-origin: *openstack-origin
+    to:
+      - '13'
+
+  nova-compute:
+    charm: cs:~openstack-charmers-next/nova-compute
+    num_units: 1
+    options:
+      openstack-origin: *openstack-origin
+    to:
+      - '14'
+
+  ceilometer:
+    charm: cs:~openstack-charmers-next/ceilometer
+    num_units: 1
+    options:
+      openstack-origin: *openstack-origin
+    to:
+      - '15'
+
+  gnocchi:
+    charm: cs:~openstack-charmers-next/gnocchi
+    num_units: 1
+    options:
+      openstack-origin: *openstack-origin
+    to:
+      - '16'
+
+  placement:
+    charm: cs:~openstack-charmers-next/placement
+    num_units: 1
+    constraints: mem=1G
+    options:
+      openstack-origin: *openstack-origin
+    to:
+      - '17'
+
+  ceilometer-agent: {}
+
+relations:
+
+  - - 'ceilometer:amqp'
+    - 'rabbitmq-server:amqp'
+
+  - - 'ceilometer:identity-notifications'
+    - 'keystone:identity-notifications'
+
+  - - 'ceilometer:ceilometer-service'
+    - 'ceilometer-agent:ceilometer-service'
+
+  - - 'ceilometer:metric-service'
+    - 'gnocchi:metric-service'
+
+  - - 'ceilometer:identity-credentials'
+    - 'keystone:identity-credentials'
+
+  - - 'keystone:shared-db'
+    - 'keystone-mysql-router:shared-db'
+  - - 'keystone-mysql-router:db-router'
+    - 'mysql-innodb-cluster:db-router'
+
+  - - 'ceilometer-agent:amqp'
+    - 'rabbitmq-server:amqp'
+
+  - - 'nova-compute:nova-ceilometer'
+    - 'ceilometer-agent:nova-ceilometer'
+
+  - - 'nova-compute:amqp'
+    - 'rabbitmq-server:amqp'
+
+  - - 'placement:shared-db'
+    - 'placement-mysql-router:shared-db'
+  - - 'placement-mysql-router:db-router'
+    - 'mysql-innodb-cluster:db-router'
+
+  - - 'placement:identity-service'
+    - 'keystone:identity-service'
+
+  - - 'placement:placement'
+    - 'nova-cloud-controller:placement'
+
+  - - 'glance:identity-service'
+    - 'keystone:identity-service'
+
+  - - 'glance:shared-db'
+    - 'glance-mysql-router:shared-db'
+  - - 'glance-mysql-router:db-router'
+    - 'mysql-innodb-cluster:db-router'
+
+  - - 'glance:amqp'
+    - 'rabbitmq-server:amqp'
+
+  - - 'nova-compute:image-service'
+    - 'glance:image-service'
+
+  - - 'nova-cloud-controller:shared-db'
+    - 'nova-cloud-controller-mysql-router:shared-db'
+  - - 'nova-cloud-controller-mysql-router:db-router'
+    - 'mysql-innodb-cluster:db-router'
+
+  - - 'nova-cloud-controller:amqp'
+    - 'rabbitmq-server:amqp'
+
+  - - 'nova-cloud-controller:identity-service'
+    - 'keystone:identity-service'
+
+  - - 'nova-cloud-controller:cloud-compute'
+    - 'nova-compute:cloud-compute'
+
+  - - 'nova-cloud-controller:image-service'
+    - 'glance:image-service'
+
+  - - 'ceph-mon:osd'
+    - 'ceph-osd:mon'
+
+  - - 'gnocchi:shared-db'
+    - 'gnocchi-mysql-router:shared-db'
+  - - 'gnocchi-mysql-router:db-router'
+    - 'mysql-innodb-cluster:db-router'
+
+  - - 'gnocchi:storage-ceph'
+    - 'ceph-mon:client'
+
+  - - 'gnocchi:coordinator-memcached'
+    - 'memcached:cache'
+
+  - - 'gnocchi:identity-service'
+    - 'keystone:identity-service'
