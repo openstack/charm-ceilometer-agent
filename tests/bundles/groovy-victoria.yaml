@@ -33,18 +33,18 @@ machines:
 applications:
 
   keystone-mysql-router:
-    charm: cs:~openstack-charmers-next/mysql-router
+    charm: cs:~openstack-charmers/mysql-router
   placement-mysql-router:
-    charm: cs:~openstack-charmers-next/mysql-router
+    charm: cs:~openstack-charmers/mysql-router
   glance-mysql-router:
-    charm: cs:~openstack-charmers-next/mysql-router
+    charm: cs:~openstack-charmers/mysql-router
   nova-cloud-controller-mysql-router:
-    charm: cs:~openstack-charmers-next/mysql-router
+    charm: cs:~openstack-charmers/mysql-router
   gnocchi-mysql-router:
-    charm: cs:~openstack-charmers-next/mysql-router
+    charm: cs:~openstack-charmers/mysql-router
 
   mysql-innodb-cluster:
-    charm: cs:~openstack-charmers-next/mysql-innodb-cluster
+    charm: cs:~openstack-charmers/mysql-innodb-cluster
     num_units: 3
     options:
       source: *openstack-origin
@@ -54,7 +54,7 @@ applications:
       - '2'
 
   rabbitmq-server:
-    charm: cs:~openstack-charmers-next/rabbitmq-server
+    charm: cs:~openstack-charmers/rabbitmq-server
     num_units: 1
     options:
       source: *openstack-origin
@@ -70,7 +70,7 @@ applications:
       - '4'
 
   ceph-osd:
-    charm: cs:~openstack-charmers-next/ceph-osd
+    charm: cs:~openstack-charmers/ceph-osd
     num_units: 3
     options:
       source: *openstack-origin
@@ -82,7 +82,7 @@ applications:
       - '7'
 
   ceph-mon:
-    charm: cs:~openstack-charmers-next/ceph-mon
+    charm: cs:~openstack-charmers/ceph-mon
     num_units: 3
     options:
       source: *openstack-origin
@@ -92,7 +92,7 @@ applications:
       - '10'
 
   keystone:
-    charm: cs:~openstack-charmers-next/keystone
+    charm: cs:~openstack-charmers/keystone
     num_units: 1
     options:
       openstack-origin: *openstack-origin
@@ -100,7 +100,7 @@ applications:
       - '11'
 
   glance:
-    charm: cs:~openstack-charmers-next/glance
+    charm: cs:~openstack-charmers/glance
     num_units: 1
     options:
       openstack-origin: *openstack-origin
@@ -108,7 +108,7 @@ applications:
       - '12'
 
   nova-cloud-controller:
-    charm: cs:~openstack-charmers-next/nova-cloud-controller
+    charm: cs:~openstack-charmers/nova-cloud-controller
     num_units: 1
     options:
       openstack-origin: *openstack-origin
@@ -116,7 +116,7 @@ applications:
       - '13'
 
   nova-compute:
-    charm: cs:~openstack-charmers-next/nova-compute
+    charm: cs:~openstack-charmers/nova-compute
     num_units: 1
     options:
       openstack-origin: *openstack-origin
@@ -124,7 +124,7 @@ applications:
       - '14'
 
   ceilometer:
-    charm: cs:~openstack-charmers-next/ceilometer
+    charm: cs:~openstack-charmers/ceilometer
     num_units: 1
     options:
       openstack-origin: *openstack-origin
@@ -132,7 +132,7 @@ applications:
       - '15'
 
   gnocchi:
-    charm: cs:~openstack-charmers-next/gnocchi
+    charm: cs:~openstack-charmers/gnocchi
     num_units: 1
     options:
       openstack-origin: *openstack-origin
@@ -140,7 +140,7 @@ applications:
       - '16'
 
   placement:
-    charm: cs:~openstack-charmers-next/placement
+    charm: cs:~openstack-charmers/placement
     num_units: 1
     constraints: mem=1G
     options:
