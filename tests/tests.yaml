@@ -14,10 +14,9 @@ gate_bundles:
   - bionic-ussuri
   - focal-ussuri
   - focal-victoria
+  - groovy-victoria
 smoke_bundles:
   - bionic-train
-dev_bundles:
-  - groovy-victoria
 tests:
   - zaza.openstack.charm_tests.ceilometer.tests.CeilometerTest
 target_deploy_status:
