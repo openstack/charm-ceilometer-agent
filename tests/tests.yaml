@@ -1,6 +1,8 @@
 charm_name: ceilometer-agent
+
 configure:
   - zaza.openstack.charm_tests.ceilometer.setup.basic_setup
+
 gate_bundles:
   - xenial-mitaka
   - bionic-queens
@@ -9,21 +11,29 @@ gate_bundles:
   - bionic-ussuri
   - focal-ussuri
   - focal-victoria
+  - focal-wallaby
   - groovy-victoria
+
 dev_bundles:
   - trusty-mitaka
   - xenial-ocata
   - xenial-pike
   - xenial-queens
   - bionic-rocky
+  - hirsute-wallaby
+
 smoke_bundles:
-  - bionic-train
+  - focal-ussuri
+
 tests:
   - zaza.openstack.charm_tests.ceilometer.tests.CeilometerTest
+
 target_deploy_status:
   ceilometer:
     workload-status: blocked
     workload-status-message: "Run the ceilometer-upgrade action on the leader to initialize ceilometer and gnocchi"
+
 tests_options:
   force_deploy:
-    - groovy-victoria
+    - trusty-mitaka
+    - hirsute-wallaby
