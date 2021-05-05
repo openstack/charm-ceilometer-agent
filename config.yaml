@@ -22,6 +22,19 @@ options:
       Openstack mostly defaults to using public endpoints for
       internal communication between services. If set to True this option will
       configure services to use internal endpoints where possible.
+  polling-interval:
+    type: int
+    default: 300
+    description: |
+      Number of seconds between Ceilometer compute agent pollster collections. This
+      setting only takes effect from Queens onwards.
+  enable-all-pollsters:
+    type: boolean
+    default: False
+    description: |
+      The default ceilometer pollster collection runs a limited set of pollsters.
+      Enable this to run all the available pollsters. This setting only takes effect
+      from Queens onwards.
   rabbit-user:
     type: string
     default: ceilometer

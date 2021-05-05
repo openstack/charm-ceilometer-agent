@@ -16,6 +16,7 @@ import base64
 import os
 
 from charmhelpers.core.hookenv import (
+    config,
     relation_ids,
     relation_get,
     related_units,
@@ -84,3 +85,13 @@ class CeilometerServiceContext(OSContextGenerator):
                             conf['rabbit_ssl_ca'] = ca_path
                     return conf
         return {}
+
+
+class CeilometerAgentContext(OSContextGenerator):
+    def __call__(self):
+        ctxt = {
+            'polling_interval': int(config('polling-interval')),
+            'enable_all_pollsters': config('enable-all-pollsters'),
+        }
+
+        return ctxt

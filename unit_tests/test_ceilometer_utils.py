@@ -53,6 +53,7 @@ class CeilometerUtilsTest(CharmTestCase):
         super(CeilometerUtilsTest, self).tearDown()
 
     def test_register_configs(self):
+        self.get_os_codename_package.return_value = 'icehouse'
         self.enable_memcache.return_value = False
         configs = utils.register_configs()
         registered_configs = [c[0][0] for c in configs.register.call_args_list]
@@ -60,6 +61,7 @@ class CeilometerUtilsTest(CharmTestCase):
         self.assertFalse(utils.MEMCACHED_CONF in registered_configs)
 
     def test_register_configs_newton(self):
+        self.get_os_codename_package.return_value = 'newton'
         self.enable_memcache.return_value = True
         configs = utils.register_configs()
         registered_configs = [c[0][0] for c in configs.register.call_args_list]
@@ -67,18 +69,31 @@ class CeilometerUtilsTest(CharmTestCase):
             self.assertTrue(config in registered_configs)
 
     def test_restart_map(self):
+        self.get_os_codename_package.return_value = 'icehouse'
         self.enable_memcache.return_value = False
         restart_map = utils.restart_map()
-        self.assertEqual(restart_map,
-                         {'/etc/ceilometer/ceilometer.conf': [
-                             'ceilometer-agent-compute']})
+        self.assertEqual(restart_map, {
+            '/etc/ceilometer/ceilometer.conf': ['ceilometer-agent-compute'],
+        })
 
     def test_restart_map_newton(self):
+        self.get_os_codename_package.return_value = 'newton'
         self.enable_memcache.return_value = True
         restart_map = utils.restart_map()
         expect = {
             '/etc/ceilometer/ceilometer.conf': ['ceilometer-agent-compute'],
-            '/etc/memcached.conf': ['memcached']}
+            '/etc/memcached.conf': ['memcached'],
+        }
+        self.assertEqual(restart_map, expect)
+
+    def test_restart_map_queens(self):
+        self.get_os_codename_package.return_value = 'queens'
+        restart_map = utils.restart_map()
+        expect = {
+            '/etc/ceilometer/ceilometer.conf': ['ceilometer-agent-compute'],
+            '/etc/memcached.conf': ['memcached'],
+            '/etc/ceilometer/polling.yaml': ['ceilometer-agent-compute'],
+        }
         self.assertEqual(restart_map, expect)
 
     def test_assess_status(self):

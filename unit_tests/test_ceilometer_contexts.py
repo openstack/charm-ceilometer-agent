@@ -16,6 +16,7 @@ import ceilometer_contexts as contexts
 from test_utils import CharmTestCase
 
 TO_PATCH = [
+    'config',
     'relation_get',
     'relation_ids',
     'related_units',
@@ -26,6 +27,7 @@ class CeilometerContextsTest(CharmTestCase):
 
     def setUp(self):
         super(CeilometerContextsTest, self).setUp(contexts, TO_PATCH)
+        self.config.side_effect = self.test_config.get
         self.relation_get.side_effect = self.test_relation.get
 
     def tearDown(self):
@@ -65,3 +67,23 @@ class CeilometerContextsTest(CharmTestCase):
     def test_ceilometer_service_context_not_related(self):
         self.relation_ids.return_value = []
         self.assertEqual(contexts.CeilometerServiceContext()(), {})
+
+    def test_ceilometer_context(self):
+        self.assertEqual(contexts.CeilometerAgentContext()(), {
+            'polling_interval': 300,
+            'enable_all_pollsters': False,
+        })
+
+    def test_ceilometer_context_enable_all_pollsters(self):
+        self.test_config.set('enable-all-pollsters', True)
+        self.assertEqual(contexts.CeilometerAgentContext()(), {
+            'polling_interval': 300,
+            'enable_all_pollsters': True,
+        })
+
+    def test_ceilometer_context_polling_interval(self):
+        self.test_config.set('polling-interval', 600)
+        self.assertEqual(contexts.CeilometerAgentContext()(), {
+            'polling_interval': 600,
+            'enable_all_pollsters': False,
+        })

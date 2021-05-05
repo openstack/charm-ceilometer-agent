@@ -18,6 +18,7 @@ from charmhelpers.contrib.openstack import (
     templating,
 )
 from ceilometer_contexts import (
+    CeilometerAgentContext,
     CeilometerServiceContext,
 )
 from charmhelpers.contrib.openstack.utils import (
@@ -49,6 +50,7 @@ from charmhelpers.fetch import (
 
 CEILOMETER_CONF_DIR = "/etc/ceilometer"
 CEILOMETER_CONF = "%s/ceilometer.conf" % CEILOMETER_CONF_DIR
+POLLING_CONF = "%s/polling.yaml" % CEILOMETER_CONF_DIR
 
 CEILOMETER_AGENT_SERVICES = ['ceilometer-agent-compute']
 
@@ -95,6 +97,17 @@ CONFIG_FILES = {
         'services': CEILOMETER_AGENT_SERVICES
     },
 }
+
+QUEENS_CONFIG_FILES = deepcopy(CONFIG_FILES)
+QUEENS_CONFIG_FILES.update({
+    POLLING_CONF: {
+        'hook_contexts': [
+            CeilometerAgentContext()
+        ],
+        'services': CEILOMETER_AGENT_SERVICES
+    }
+})
+
 TEMPLATES = 'templates'
 
 REQUIRED_INTERFACES = {
@@ -117,8 +130,13 @@ def register_configs():
     configs = templating.OSConfigRenderer(templates_dir=TEMPLATES,
                                           openstack_release=release)
 
-    for conf in CONFIG_FILES:
-        configs.register(conf, CONFIG_FILES[conf]['hook_contexts'])
+    if CompareOpenStackReleases(release) >= 'queens':
+        _config_files = QUEENS_CONFIG_FILES
+    else:
+        _config_files = CONFIG_FILES
+
+    for conf in _config_files:
+        configs.register(conf, _config_files[conf]['hook_contexts'])
 
     if enable_memcache(release=release):
         configs.register(
@@ -192,8 +210,14 @@ def restart_map():
     '''
     release = (get_os_codename_package('ceilometer-common', fatal=False) or
                'icehouse')
+
+    if CompareOpenStackReleases(release) >= 'queens':
+        _config_files = QUEENS_CONFIG_FILES
+    else:
+        _config_files = CONFIG_FILES
+
     _map = {}
-    for f, ctxt in CONFIG_FILES.items():
+    for f, ctxt in _config_files.items():
         svcs = []
         for svc in ctxt['services']:
             svcs.append(svc)
