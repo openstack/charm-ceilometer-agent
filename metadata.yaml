@@ -22,6 +22,7 @@ series:
 - focal
 - groovy
 - hirsute
+- impish
 provides:
   nrpe-external-master:
     interface: nrpe-external-master
