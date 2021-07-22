@@ -14,7 +14,7 @@ machines:
     constraints: mem=3072M
   '3':
   '4':
-    # machine for memcached; doesn't have a focal/groovy version yet.
+    # machine for memcached; doesn't have a focal+ version yet.
     series: bionic
   '5':
   '6':
@@ -26,9 +26,12 @@ machines:
   '12':
   '13':
   '14':
+    constraints: mem=4096M cores=4
   '15':
   '16':
   '17':
+  '18':
+  '19':
 
 applications:
 
@@ -41,6 +44,8 @@ applications:
   nova-cloud-controller-mysql-router:
     charm: cs:~openstack-charmers-next/mysql-router
   gnocchi-mysql-router:
+    charm: cs:~openstack-charmers-next/mysql-router
+  neutron-api-mysql-router:
     charm: cs:~openstack-charmers-next/mysql-router
 
   mysql-innodb-cluster:
@@ -112,6 +117,7 @@ applications:
     num_units: 1
     options:
       openstack-origin: *openstack-origin
+      network-manager: Neutron
     to:
       - '13'
 
@@ -123,13 +129,39 @@ applications:
     to:
       - '14'
 
+  neutron-api:
+    charm: cs:~openstack-charmers-next/neutron-api
+    num_units: 1
+    options:
+      manage-neutron-plugin-legacy-mode: true
+      openstack-origin: *openstack-origin
+      flat-network-providers: physnet1
+      neutron-security-groups: true
+    to:
+      - '15'
+
+  neutron-gateway:
+    charm: cs:~openstack-charmers-next/neutron-gateway
+    num_units: 1
+    options:
+      openstack-origin: *openstack-origin
+      bridge-mappings: physnet1:br-ex
+    to:
+      - '16'
+
+  neutron-openvswitch:
+    charm: cs:~openstack-charmers-next/neutron-openvswitch
+
   ceilometer:
     charm: cs:~openstack-charmers-next/ceilometer
     num_units: 1
     options:
       openstack-origin: *openstack-origin
+      debug: true
+      polling-interval: 10
+      polling-batch-size: 0
     to:
-      - '15'
+      - '17'
 
   gnocchi:
     charm: cs:~openstack-charmers-next/gnocchi
@@ -137,7 +169,7 @@ applications:
     options:
       openstack-origin: *openstack-origin
     to:
-      - '16'
+      - '18'
 
   placement:
     charm: cs:~openstack-charmers-next/placement
@@ -146,9 +178,12 @@ applications:
     options:
       openstack-origin: *openstack-origin
     to:
-      - '17'
+      - '19'
 
-  ceilometer-agent: {}
+  ceilometer-agent:
+    options:
+      polling-interval: 10
+      enable-all-pollsters: true
 
 relations:
 
@@ -239,3 +274,29 @@ relations:
 
   - - 'gnocchi:identity-service'
     - 'keystone:identity-service'
+
+  - - 'neutron-gateway:amqp'
+    - 'rabbitmq-server:amqp'
+
+  - - 'nova-cloud-controller:quantum-network-service'
+    - 'neutron-gateway:quantum-network-service'
+
+  - - 'neutron-api:shared-db'
+    - 'neutron-api-mysql-router:shared-db'
+  - - 'neutron-api-mysql-router:db-router'
+    - 'mysql-innodb-cluster:db-router'
+
+  - - 'neutron-api:amqp'
+    - 'rabbitmq-server:amqp'
+
+  - - 'neutron-api:neutron-api'
+    - 'nova-cloud-controller:neutron-api'
+
+  - - 'neutron-api:identity-service'
+    - 'keystone:identity-service'
+
+  - - 'nova-compute:neutron-plugin'
+    - 'neutron-openvswitch:neutron-plugin'
+
+  - - 'rabbitmq-server:amqp'
+    - 'neutron-openvswitch:amqp'

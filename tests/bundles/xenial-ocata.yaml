@@ -14,10 +14,13 @@ machines:
   9: {}
   10: {}
   11: {}
-  12: {}
+  12:
+    constraints: mem=4096M cores=4
   13: {}
   14: {}
   15: {}
+  16: {}
+  17: {}
 applications:
   percona-cluster:
     charm: cs:~openstack-charmers-next/percona-cluster
@@ -76,6 +79,7 @@ applications:
     num_units: 1
     options:
       openstack-origin: *source
+      network-manager: Neutron
     to:
       - '11'
   nova-compute:
@@ -85,26 +89,52 @@ applications:
       openstack-origin: *source
     to:
       - '12'
+  neutron-api:
+    charm: cs:~openstack-charmers-next/neutron-api
+    num_units: 1
+    options:
+      openstack-origin: *source
+      flat-network-providers: physnet1
+      neutron-security-groups: true
+    to:
+      - '13'
+  neutron-gateway:
+    charm: cs:~openstack-charmers-next/neutron-gateway
+    num_units: 1
+    options:
+      openstack-origin: *source
+      bridge-mappings: physnet1:br-ex
+    to:
+      - '14'
+  neutron-openvswitch:
+    charm: cs:~openstack-charmers-next/neutron-openvswitch
   ceilometer:
     charm: cs:~openstack-charmers-next/ceilometer
     num_units: 1
     options:
       openstack-origin: *source
+      debug: true
+      polling-interval: 10
+      polling-batch-size: 0
     to:
-      - '13'
+      - '15'
   gnocchi:
     charm: cs:~openstack-charmers-next/gnocchi
     num_units: 1
     options:
       openstack-origin: *source
     to:
-      - '14'
-  ceilometer-agent: {}
+      - '16'
+  ceilometer-agent:
+    options:
+      polling-interval: 10
+      enable-all-pollsters: true
   mongodb:
     num_units: 1
     charm: cs:xenial/mongodb
     to:
-      - '15'
+      - '17'
+
 relations:
 - - 'ceilometer:amqp'
   - 'rabbitmq-server:amqp'
@@ -154,3 +184,19 @@ relations:
   - 'memcached:cache'
 - - 'gnocchi:identity-service'
   - 'keystone:identity-service'
+- - 'neutron-gateway:amqp'
+  - 'rabbitmq-server:amqp'
+- - 'nova-cloud-controller:quantum-network-service'
+  - 'neutron-gateway:quantum-network-service'
+- - 'neutron-api:shared-db'
+  - 'percona-cluster:shared-db'
+- - 'neutron-api:amqp'
+  - 'rabbitmq-server:amqp'
+- - 'neutron-api:neutron-api'
+  - 'nova-cloud-controller:neutron-api'
+- - 'neutron-api:identity-service'
+  - 'keystone:identity-service'
+- - 'nova-compute:neutron-plugin'
+  - 'neutron-openvswitch:neutron-plugin'
+- - 'rabbitmq-server:amqp'
+  - 'neutron-openvswitch:amqp'

@@ -1,4 +1,23 @@
 - project:
     templates:
       - charm-unit-jobs
-      - charm-functional-jobs
+    check:
+      jobs:
+      - xenial-mitaka_ceilometer-agent
+      - bionic-queens
+      - bionic-stein
+      - bionic-train
+      - bionic-ussuri
+      - focal-ussuri
+      - focal-victoria
+      - focal-wallaby
+      - groovy-victoria
+      - hirsute-wallaby
+
+- job:
+    name: xenial-mitaka_ceilometer-agent
+    parent: func-target
+    dependencies:
+      - bionic-ussuri
+    vars:
+      tox_extra_args: mitaka:xenial-mitaka
