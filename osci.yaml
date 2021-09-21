@@ -11,8 +11,12 @@
       - focal-ussuri
       - focal-victoria
       - focal-wallaby
+      - focal-xena:
+          voting: false
       - groovy-victoria
       - hirsute-wallaby
+      - impish-xena:
+          voting: false
 
 - job:
     name: xenial-mitaka_ceilometer-agent
