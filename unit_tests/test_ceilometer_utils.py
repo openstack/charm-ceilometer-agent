@@ -157,3 +157,15 @@ class CeilometerUtilsTest(CharmTestCase):
                          sorted([p for p in utils.CEILOMETER_AGENT_PACKAGES
                                  if not p.startswith('python-')] +
                                 ['python3-ceilometer', 'python3-memcache']))
+
+    def test_releases_packages_map(self):
+        self.get_os_codename_package.return_value = 'ussuri'
+        self.token_cache_pkgs.return_value = []
+        self.assertEqual(utils.releases_packages_map(), {
+            'ussuri': {
+                'deb': {
+                    'install': [
+                        'ceilometer-common', 'ceilometer-agent-compute',
+                        'python3-ceilometer', 'python3-memcache'],
+                    'purge': ['python-ceilometer'],
+                }}})

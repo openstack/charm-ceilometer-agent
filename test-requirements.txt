@@ -36,6 +36,10 @@ stevedore<1.31.0;python_version<'3.6'
 debtcollector<1.22.0;python_version<'3.6'
 oslo.utils<=3.41.0;python_version<'3.6'
 
+# New openstacksdk versions depend on platformdirs>=3 which does not support
+# python 3.6
+openstacksdk<1.6.0; python_version <= '3.6'
+
 coverage>=4.5.2
 pyudev              # for ceph-* charm unit tests (need to fix the ceph-* charm unit tests/mocking)
 git+https://github.com/openstack-charmers/zaza.git@stable/train#egg=zaza

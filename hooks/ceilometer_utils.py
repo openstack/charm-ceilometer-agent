@@ -115,8 +115,7 @@ def register_configs():
     # if called without anything installed (eg during install hook)
     # just default to earliest supported release. configs dont get touched
     # till post-install, anyway.
-    release = get_os_codename_package('ceilometer-common', fatal=False) \
-        or 'icehouse'
+    release = _get_current_release()
     configs = templating.OSConfigRenderer(templates_dir=TEMPLATES,
                                           openstack_release=release)
 
@@ -137,8 +136,7 @@ def register_configs():
 
 
 def get_packages():
-    release = CompareOpenStackReleases(get_os_codename_package(
-        'ceilometer-common', fatal=False) or 'icehouse')
+    release = _get_current_release()
 
     packages = deepcopy(CEILOMETER_AGENT_PACKAGES)
     packages.extend(token_cache_pkgs(release=release))
@@ -157,13 +155,46 @@ def determine_purge_packages():
 
     :returns: list of package names
     '''
-    release = CompareOpenStackReleases(get_os_codename_package(
-        'ceilometer-common', fatal=False) or 'icehouse')
+    release = _get_current_release()
     if release >= 'rocky':
         pkgs = [p for p in CEILOMETER_AGENT_PACKAGES
                 if p.startswith('python-')]
         return pkgs
     return []
+
+
+def releases_packages_map():
+    '''Provide a map of all supported releases and their packages.
+
+    NOTE(lourot): this is a simplified version of a more generic
+    implementation:
+    https://github.com/openstack/charms.openstack/blob/master/charms_openstack/charm/core.py
+
+    :returns: Map of release, package type and install / purge packages.
+        Example:
+        {
+            'mitaka': {
+                'deb': {
+                    'install': ['python-ldappool'],
+                    'purge': []
+                }
+            },
+            'rocky': {
+                'deb': {
+                    'install': ['python3-ldap', 'python3-ldappool'],
+                    'purge': ['python-ldap', 'python-ldappool']}
+            }
+        }
+    :rtype: Dict[str,Dict[str,List[str]]]
+    '''
+    return {
+        _get_current_release(): {
+            'deb': {
+                'install': get_packages(),
+                'purge': determine_purge_packages(),
+            }
+        }
+    }
 
 
 def remove_old_packages():
@@ -183,8 +214,7 @@ def remove_old_packages():
 def determine_held_packages():
     '''Return a list of packages to mark as candidates for removal
     for the current OS release'''
-    release = CompareOpenStackReleases(get_os_codename_package(
-        'ceilometer-common', fatal=False) or 'icehouse')
+    release = _get_current_release()
     if release >= 'rocky':
         return HELD_PACKAGES
     return []
@@ -198,8 +228,7 @@ def restart_map():
     :returns: dict: A dictionary mapping config file to lists of services
                     that should be restarted when file changes.
     '''
-    release = (get_os_codename_package('ceilometer-common', fatal=False) or
-               'icehouse')
+    release = _get_current_release()
 
     if CompareOpenStackReleases(release) >= 'queens':
         _config_files = QUEENS_CONFIG_FILES
@@ -291,3 +320,8 @@ def _pause_resume_helper(f, configs):
     f(assess_status_func(configs),
       services=services(),
       ports=None)
+
+
+def _get_current_release():
+    return (get_os_codename_package('ceilometer-common', fatal=False)
+            or 'icehouse')
