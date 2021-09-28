@@ -29,6 +29,8 @@ TO_PATCH = [
     'apt_update',
     'filter_installed_packages',
     'get_packages',
+    'releases_packages_map',
+    'services',
     'is_relation_made',
     'is_unit_paused_set',
     'relation_set',
@@ -65,11 +67,27 @@ class CeilometerHooksTest(CharmTestCase):
 
     @patch('charmhelpers.core.hookenv.config')
     def test_nova_ceilometer_joined(self, mock_config):
+        mocked_releases_packages_map = {
+            'ussuri': {
+                'deb': {
+                    'install': [
+                        'ceilometer-common', 'ceilometer-agent-compute',
+                        'python3-ceilometer', 'python3-memcache'],
+                    'purge': ['python-ceilometer'],
+                }}}
+        mocked_services = ['ceilometer-agent-compute']
+
+        self.releases_packages_map.return_value = mocked_releases_packages_map
+        self.services.return_value = mocked_services
         hooks.hooks.execute(['hooks/nova-ceilometer-relation-joined'])
         self.relation_set.assert_called_with(
             relation_id=None,
-            subordinate_configuration=json.dumps(
-                ceilometer_utils.NOVA_SETTINGS))
+            relation_settings={
+                'subordinate_configuration': json.dumps(
+                    ceilometer_utils.NOVA_SETTINGS),
+                'releases-packages-map': json.dumps(
+                    mocked_releases_packages_map, sort_keys=True),
+                'services': json.dumps(mocked_services)})
 
     @patch('charmhelpers.core.hookenv.config')
     def test_config_changed(self, mock_config):

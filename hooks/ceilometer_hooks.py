@@ -59,6 +59,7 @@ from ceilometer_utils import (
     NOVA_SETTINGS,
     assess_status,
     get_packages,
+    releases_packages_map,
     pause_unit_helper,
     resume_unit_helper,
     remove_old_packages,
@@ -83,8 +84,14 @@ def install():
 
 @hooks.hook('nova-ceilometer-relation-joined')
 def nova_ceilometer_joined(relation_id=None):
-    relation_set(relation_id=relation_id,
-                 subordinate_configuration=json.dumps(NOVA_SETTINGS))
+    relation_set(
+        relation_id=relation_id,
+        relation_settings={
+            'subordinate_configuration': json.dumps(NOVA_SETTINGS),
+            'releases-packages-map': json.dumps(
+                releases_packages_map(), sort_keys=True),
+            'services': json.dumps(services())
+        })
 
 
 @hooks.hook("ceilometer-service-relation-changed")
