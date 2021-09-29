@@ -23,25 +23,15 @@ from ceilometer_contexts import (
 )
 from charmhelpers.contrib.openstack.utils import (
     get_os_codename_package,
-    get_os_codename_install_source,
-    configure_installation_source,
     make_assess_status_func,
     pause_unit,
     resume_unit,
     os_application_version_set,
     token_cache_pkgs,
     enable_memcache,
-    reset_os_release,
     CompareOpenStackReleases,
 )
-from charmhelpers.core.hookenv import (
-    config,
-    log,
-)
 from charmhelpers.fetch import (
-    apt_update,
-    apt_install,
-    apt_upgrade,
     apt_purge,
     apt_autoremove,
     apt_mark,
@@ -234,43 +224,6 @@ def services():
     for v in restart_map().values():
         _services = _services + v
     return list(set(_services))
-
-
-def do_openstack_upgrade(configs):
-    """
-    Perform an upgrade.  Takes care of upgrading packages, rewriting
-    configs, database migrations and potentially any other post-upgrade
-    actions.
-
-    :param configs: The charms main OSConfigRenderer object.
-    """
-    new_src = config('openstack-origin')
-    new_os_rel = get_os_codename_install_source(new_src)
-
-    log('Performing OpenStack upgrade to %s.' % (new_os_rel))
-
-    configure_installation_source(new_src)
-    dpkg_opts = [
-        '--option', 'Dpkg::Options::=--force-confnew',
-        '--option', 'Dpkg::Options::=--force-confdef',
-    ]
-    apt_update(fatal=True)
-    apt_upgrade(options=dpkg_opts, fatal=True, dist=True)
-    reset_os_release()
-    apt_install(packages=CEILOMETER_AGENT_PACKAGES,
-                options=dpkg_opts,
-                fatal=True)
-    # Call apt_install a 2nd time to allow packages which are enabled
-    # for specific OpenStack version to be installed . This is because
-    # Openstack version for a subordinate should be derived from the
-    # version of an installed package rather than relying on
-    # openstack-origin which would not be present in a subordinate.
-    apt_install(get_packages(), fatal=True)
-
-    remove_old_packages()
-
-    # set CONFIGS to load templates from new release
-    configs.set_release(openstack_release=new_os_rel)
 
 
 def assess_status(configs):
