@@ -25,6 +25,7 @@ machines:
   '11':
   '12':
   '13':
+    constraints: mem=4096M
   '14':
     constraints: mem=4096M cores=4
   '15':

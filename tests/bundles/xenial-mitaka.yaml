@@ -6,7 +6,8 @@ machines:
   2: {}
   3: {}
   4: {}
-  5: {}
+  5:
+    constraints: mem=4096M
   6: {}
   7: {}
 

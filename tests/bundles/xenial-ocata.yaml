@@ -13,7 +13,8 @@ machines:
   8: {}
   9: {}
   10: {}
-  11: {}
+  11:
+    constraints: mem=4096M
   12:
     constraints: mem=4096M cores=4
   13: {}
