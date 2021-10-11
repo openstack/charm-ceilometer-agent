@@ -13,45 +13,52 @@ machines:
 
 applications:
   percona-cluster:
-    charm: cs:~openstack-charmers-next/percona-cluster
+    charm: cs:~openstack-charmers/percona-cluster
     num_units: 1
     to:
       - '0'
+    channel: candidate
   rabbitmq-server:
-    charm: cs:~openstack-charmers-next/rabbitmq-server
+    charm: cs:~openstack-charmers/rabbitmq-server
     num_units: 1
     to:
       - '1'
+    channel: candidate
   mongodb:
     charm: cs:xenial/mongodb
     num_units: 1
     to:
       - '2'
   keystone:
-    charm: cs:~openstack-charmers-next/keystone
+    charm: cs:~openstack-charmers/keystone
     num_units: 1
     to:
       - '3'
+    channel: candidate
   glance:
-    charm: cs:~openstack-charmers-next/glance
+    charm: cs:~openstack-charmers/glance
     num_units: 1
     to:
       - '4'
+    channel: candidate
   nova-cloud-controller:
-    charm: cs:~openstack-charmers-next/nova-cloud-controller
+    charm: cs:~openstack-charmers/nova-cloud-controller
     num_units: 1
     to:
       - '5'
+    channel: candidate
   nova-compute:
-    charm: cs:~openstack-charmers-next/nova-compute
+    charm: cs:~openstack-charmers/nova-compute
     num_units: 1
     to:
       - '6'
+    channel: candidate
   ceilometer:
-    charm: cs:~openstack-charmers-next/ceilometer
+    charm: cs:~openstack-charmers/ceilometer
     num_units: 1
     to:
       - '7'
+    channel: candidate
   ceilometer-agent: {}
   
 relations:
