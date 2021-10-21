@@ -38,22 +38,16 @@ applications:
 
   keystone-mysql-router:
     charm: cs:~openstack-charmers/mysql-router
-    channel: candidate
   placement-mysql-router:
     charm: cs:~openstack-charmers/mysql-router
-    channel: candidate
   glance-mysql-router:
     charm: cs:~openstack-charmers/mysql-router
-    channel: candidate
   nova-cloud-controller-mysql-router:
     charm: cs:~openstack-charmers/mysql-router
-    channel: candidate
   gnocchi-mysql-router:
     charm: cs:~openstack-charmers/mysql-router
-    channel: candidate
   neutron-api-mysql-router:
     charm: cs:~openstack-charmers/mysql-router
-    channel: candidate
 
   mysql-innodb-cluster:
     charm: cs:~openstack-charmers/mysql-innodb-cluster
@@ -64,7 +58,6 @@ applications:
       - '0'
       - '1'
       - '2'
-    channel: candidate
 
   rabbitmq-server:
     charm: cs:~openstack-charmers/rabbitmq-server
@@ -73,7 +66,6 @@ applications:
       source: *openstack-origin
     to:
       - '3'
-    channel: candidate
 
   memcached:
     charm: cs:~memcached-team/memcached
@@ -94,7 +86,6 @@ applications:
       - '5'
       - '6'
       - '7'
-    channel: candidate
 
   ceph-mon:
     charm: cs:~openstack-charmers/ceph-mon
@@ -105,7 +96,6 @@ applications:
       - '8'
       - '9'
       - '10'
-    channel: candidate
 
   keystone:
     charm: cs:~openstack-charmers/keystone
@@ -114,7 +104,6 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '11'
-    channel: candidate
 
   glance:
     charm: cs:~openstack-charmers/glance
@@ -123,7 +112,6 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '12'
-    channel: candidate
 
   nova-cloud-controller:
     charm: cs:~openstack-charmers/nova-cloud-controller
@@ -133,7 +121,6 @@ applications:
       network-manager: Neutron
     to:
       - '13'
-    channel: candidate
 
   nova-compute:
     charm: cs:~openstack-charmers/nova-compute
@@ -142,7 +129,6 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '14'
-    channel: candidate
 
   neutron-api:
     charm: cs:~openstack-charmers/neutron-api
@@ -154,7 +140,6 @@ applications:
       neutron-security-groups: true
     to:
       - '15'
-    channel: candidate
 
   neutron-gateway:
     charm: cs:~openstack-charmers/neutron-gateway
@@ -164,11 +149,9 @@ applications:
       bridge-mappings: physnet1:br-ex
     to:
       - '16'
-    channel: candidate
 
   neutron-openvswitch:
     charm: cs:~openstack-charmers/neutron-openvswitch
-    channel: candidate
 
   ceilometer:
     charm: cs:~openstack-charmers/ceilometer
@@ -180,7 +163,6 @@ applications:
       polling-batch-size: 0
     to:
       - '17'
-    channel: candidate
 
   gnocchi:
     charm: cs:~openstack-charmers/gnocchi
@@ -189,7 +171,6 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '18'
-    channel: candidate
 
   placement:
     charm: cs:~openstack-charmers/placement
@@ -199,7 +180,6 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '19'
-    channel: candidate
 
   ceilometer-agent:
     options:
