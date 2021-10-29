@@ -17,7 +17,6 @@ tags:
 - telemetry
 - misc
 series:
-- xenial
 - bionic
 - focal
 - groovy

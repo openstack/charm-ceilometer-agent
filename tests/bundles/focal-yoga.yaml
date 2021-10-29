@@ -1,7 +1,7 @@
 variables:
-  openstack-origin: &openstack-origin distro
+  openstack-origin: &openstack-origin cloud:focal-yoga
 
-series: groovy
+series: focal
 
 comment:
 - 'machines section to decide order of deployment. database sooner = faster'
@@ -70,7 +70,7 @@ applications:
   memcached:
     charm: cs:~memcached-team/memcached
     num_units: 1
-    # hold at bionic as no focal/groovy version of the charm yet
+    # hold at bionic as no focal version of the charm yet
     series: bionic
     to:
       - '4'
@@ -184,7 +184,9 @@ applications:
   ceilometer-agent:
     options:
       polling-interval: 10
-      enable-all-pollsters: true
+      # NOTE(lourot): we normally set this to `true` in other bundles in order
+      # to validate more metrics but this is broken on Wallaby. See lp:1938884
+      enable-all-pollsters: false
 
 relations:
 
