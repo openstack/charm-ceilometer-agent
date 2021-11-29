@@ -48,9 +48,6 @@ from charmhelpers.core.host import (
 )
 from charmhelpers.contrib.openstack.utils import (
     pausable_restart_on_change as restart_on_change,
-    is_unit_paused_set,
-    series_upgrade_prepare,
-    series_upgrade_complete,
 )
 from ceilometer_utils import (
     restart_map,
@@ -60,8 +57,6 @@ from ceilometer_utils import (
     assess_status,
     get_packages,
     releases_packages_map,
-    pause_unit_helper,
-    resume_unit_helper,
     remove_old_packages,
 )
 from charmhelpers.contrib.charmsupport import nrpe
@@ -107,11 +102,21 @@ def upgrade_charm():
     apt_install(
         filter_installed_packages(get_packages()),
         fatal=True)
+
     packages_removed = remove_old_packages()
-    if packages_removed and not is_unit_paused_set():
+    if packages_removed:
+        # NOTE(lourot): this code path is run when python2 packages have been
+        # purged and python3 packages installed. In this case it is best to
+        # restart the ceilometer-agent-compute service.
         log("Package purge detected, restarting services", "INFO")
         for s in services():
+            # NOTE(lourot): if the principal nova-compute unit is paused, the
+            # ceilometer-agent-compute service, depending on the nova-compute
+            # service, will refuse to start, but this call won't raise. It'll
+            # just return False. This can safely be ignored: all services will
+            # finally be started when unpausing nova-compute.
             service_restart(s)
+
     # NOTE(jamespage): Ensure any changes to nova presented data are made
     #                  during charm upgrades.
     for rid in relation_ids('nova-ceilometer'):
@@ -122,12 +127,6 @@ def upgrade_charm():
 @hooks.hook('config-changed')
 @restart_on_change(restart_map(), stopstart=True)
 def config_changed():
-    # if we are paused, delay doing any config changed hooks.
-    # It is forced on the resume.
-    if is_unit_paused_set():
-        log("Unit is pause or upgrading. Skipping config_changed", "WARN")
-        return
-
     apt_install(filter_installed_packages(get_packages()), fatal=True)
     if is_relation_made('nrpe-external-master'):
         update_nrpe_config()
@@ -144,20 +143,6 @@ def update_nrpe_config():
     nrpe_setup = nrpe.NRPE(hostname=hostname)
     nrpe.add_init_service_checks(nrpe_setup, services(), current_unit)
     nrpe_setup.write()
-
-
-@hooks.hook('pre-series-upgrade')
-def pre_series_upgrade():
-    log("Running prepare series upgrade hook", "INFO")
-    series_upgrade_prepare(
-        pause_unit_helper, CONFIGS)
-
-
-@hooks.hook('post-series-upgrade')
-def post_series_upgrade():
-    log("Running complete series upgrade hook", "INFO")
-    series_upgrade_complete(
-        resume_unit_helper, CONFIGS)
 
 
 @hooks.hook('amqp-relation-joined')

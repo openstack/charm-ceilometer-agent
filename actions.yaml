@@ -1,4 +1,0 @@
-pause:
-    description: Pause the ceilometer-agent unit.  This action will stop ceilometer-agent services.
-resume:
-    descrpition: Resume the ceilometer-agent unit.  This action will start ceilometer-agent services.

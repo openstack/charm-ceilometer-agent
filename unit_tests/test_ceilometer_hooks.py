@@ -32,7 +32,6 @@ TO_PATCH = [
     'releases_packages_map',
     'services',
     'is_relation_made',
-    'is_unit_paused_set',
     'relation_set',
     'update_nrpe_config',
 ]
@@ -92,7 +91,6 @@ class CeilometerHooksTest(CharmTestCase):
     @patch('charmhelpers.core.hookenv.config')
     def test_config_changed(self, mock_config):
         self.is_relation_made.return_value = True
-        self.is_unit_paused_set.return_value = False
         self.filter_installed_packages.return_value = ['pkg1', 'pkg2']
         hooks.hooks.execute(['hooks/config-changed'])
         self.update_nrpe_config.assert_called_once_with()
@@ -103,20 +101,9 @@ class CeilometerHooksTest(CharmTestCase):
     @patch('charmhelpers.core.hookenv.config')
     def test_config_changed_no_nrpe(self, mock_config):
         self.is_relation_made.return_value = False
-        self.is_unit_paused_set.return_value = False
         self.filter_installed_packages.return_value = ['pkg1', 'pkg2']
         hooks.hooks.execute(['hooks/config-changed'])
         self.assertFalse(self.update_nrpe_config.called)
         self.CONFIGS.write_all.assert_called_once_with()
         self.apt_install.assert_called_once_with(['pkg1', 'pkg2'], fatal=True)
         self.is_relation_made.assert_called_once_with('nrpe-external-master')
-
-    @patch('charmhelpers.core.hookenv.config')
-    def test_config_changed_paused(self, mock_config):
-        self.is_relation_made.return_value = True
-        self.is_unit_paused_set.return_value = True
-        self.filter_installed_packages.return_value = ['pkg1', 'pkg2']
-        hooks.hooks.execute(['hooks/config-changed'])
-        self.assertFalse(self.update_nrpe_config.called)
-        self.assertFalse(self.CONFIGS.write_all.called)
-        self.assertFalse(self.apt_install.called)

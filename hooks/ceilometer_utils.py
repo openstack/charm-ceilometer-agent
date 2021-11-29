@@ -24,8 +24,6 @@ from ceilometer_contexts import (
 from charmhelpers.contrib.openstack.utils import (
     get_os_codename_package,
     make_assess_status_func,
-    pause_unit,
-    resume_unit,
     os_application_version_set,
     token_cache_pkgs,
     enable_memcache,
@@ -286,40 +284,6 @@ def assess_status_func(configs):
     return make_assess_status_func(
         configs, REQUIRED_INTERFACES,
         services=services(), ports=None)
-
-
-def pause_unit_helper(configs):
-    """Helper function to pause a unit, and then call assess_status(...) in
-    effect, so that the status is correctly updated.
-    Uses charmhelpers.contrib.openstack.utils.pause_unit() to do the work.
-    @param configs: a templating.OSConfigRenderer() object
-    @returns None - this function is executed for its side-effect
-    """
-    _pause_resume_helper(pause_unit, configs)
-
-
-def resume_unit_helper(configs):
-    """Helper function to resume a unit, and then call assess_status(...) in
-    effect, so that the status is correctly updated.
-    Uses charmhelpers.contrib.openstack.utils.resume_unit() to do the work.
-    @param configs: a templating.OSConfigRenderer() object
-    @returns None - this function is executed for its side-effect
-    """
-    _pause_resume_helper(resume_unit, configs)
-
-
-def _pause_resume_helper(f, configs):
-    """Helper function that uses the make_assess_status_func(...) from
-    charmhelpers.contrib.openstack.utils to create an assess_status(...)
-    function that can be used with the pause/resume of the unit
-    @param f: the function to be used with the assess_status(...) function
-    @returns None - this function is executed for its side-effect
-    """
-    # TODO(ajkavanagh) - ports= has been left off because of the race hazard
-    # that exists due to service_start()
-    f(assess_status_func(configs),
-      services=services(),
-      ports=None)
 
 
 def _get_current_release():
