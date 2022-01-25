@@ -17,10 +17,7 @@ tags:
 - telemetry
 - misc
 series:
-- bionic
 - focal
-- groovy
-- hirsute
 - impish
 provides:
   nrpe-external-master:
