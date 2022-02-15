@@ -6,14 +6,13 @@ parts:
     source: .
     prime:
       - actions/*
+      - charmhelpers/*
       - files/*
       - hooks/*
       - lib/*
       - templates/*
-      - actions.yaml
       - config.yaml
       - copyright
-      - hardening.yaml
       - icon.svg
       - LICENSE
       - Makefile

@@ -94,7 +94,7 @@ applications:
       - '5'
       - '6'
       - '7'
-    channel: latest/edge
+    channel: quincy/edge
 
   ceph-mon:
     charm: ch:ceph-mon
@@ -105,7 +105,7 @@ applications:
       - '8'
       - '9'
       - '10'
-    channel: latest/edge
+    channel: quincy/edge
 
   keystone:
     charm: ch:keystone
@@ -114,7 +114,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '11'
-    channel: latest/edge
+    channel: yoga/edge
 
   glance:
     charm: ch:glance
@@ -123,7 +123,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '12'
-    channel: latest/edge
+    channel: yoga/edge
 
   nova-cloud-controller:
     charm: ch:nova-cloud-controller
@@ -133,7 +133,7 @@ applications:
       network-manager: Neutron
     to:
       - '13'
-    channel: latest/edge
+    channel: yoga/edge
 
   nova-compute:
     charm: ch:nova-compute
@@ -142,7 +142,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '14'
-    channel: latest/edge
+    channel: yoga/edge
 
   neutron-api:
     charm: ch:neutron-api
@@ -154,7 +154,7 @@ applications:
       neutron-security-groups: true
     to:
       - '15'
-    channel: latest/edge
+    channel: yoga/edge
 
   neutron-gateway:
     charm: ch:neutron-gateway
@@ -164,11 +164,11 @@ applications:
       bridge-mappings: physnet1:br-ex
     to:
       - '16'
-    channel: latest/edge
+    channel: yoga/edge
 
   neutron-openvswitch:
     charm: ch:neutron-openvswitch
-    channel: latest/edge
+    channel: yoga/edge
 
   ceilometer:
     charm: ch:ceilometer
@@ -180,7 +180,7 @@ applications:
       polling-batch-size: 0
     to:
       - '17'
-    channel: latest/edge
+    channel: yoga/edge
 
   gnocchi:
     charm: ch:gnocchi
@@ -189,7 +189,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '18'
-    channel: latest/edge
+    channel: yoga/edge
 
   placement:
     charm: ch:placement
@@ -199,9 +199,10 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '19'
-    channel: latest/edge
+    channel: yoga/edge
 
   ceilometer-agent:
+    charm: ../../ceilometer-agent.charm
     options:
       polling-interval: 10
       # NOTE(lourot): we normally set this to `true` in other bundles in order
