@@ -11,27 +11,13 @@ configure:
   - zaza.openstack.charm_tests.nova.setup.manage_ssh_key
 
 gate_bundles:
-  - mitaka: xenial-mitaka
-  - bionic-queens
-  - bionic-train
-  - bionic-ussuri
-  - focal-ussuri
-  - focal-victoria
   - focal-wallaby
   - focal-xena
-  - groovy-victoria
-  - hirsute-wallaby
-  - impish-xena
 
-dev_bundles:
-  - mitaka: trusty-mitaka
-  - xenial-ocata
-  - xenial-pike
-  - xenial-queens
-  - bionic-rocky
+dev_bundles: []
 
 smoke_bundles:
-  - focal-ussuri
+  - focal-xen
 
 tests:
   - mitaka:
@@ -45,7 +31,4 @@ target_deploy_status:
     workload-status-message: "Run the ceilometer-upgrade action on the leader to initialize ceilometer and gnocchi"
 
 tests_options:
-  force_deploy:
-    - trusty-mitaka
-    - hirsute-wallaby
-    - impish-xena
+  force_deploy: []

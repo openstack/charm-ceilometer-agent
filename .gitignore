@@ -9,3 +9,4 @@ tags
 trusty
 .stestr
 func-results.json
+*.charm
