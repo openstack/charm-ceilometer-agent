@@ -1,4 +1,3 @@
 - project:
     templates:
-      - python35-charm-jobs
-      - openstack-python3-ussuri-jobs
+      - openstack-python3-charm-yoga-jobs

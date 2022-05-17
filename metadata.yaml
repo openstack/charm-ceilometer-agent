@@ -18,7 +18,7 @@ tags:
 - misc
 series:
 - focal
-- impish
+- jammy
 provides:
   nrpe-external-master:
     interface: nrpe-external-master
