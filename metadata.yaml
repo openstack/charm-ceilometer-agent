@@ -17,12 +17,8 @@ tags:
 - telemetry
 - misc
 series:
-- xenial
 - bionic
 - focal
-- groovy
-- hirsute
-- impish
 provides:
   nrpe-external-master:
     interface: nrpe-external-master
