@@ -17,7 +17,6 @@ tags:
 - telemetry
 - misc
 series:
-- focal
 - jammy
 provides:
   nrpe-external-master:

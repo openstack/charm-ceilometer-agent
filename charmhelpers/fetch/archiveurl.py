@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import contextlib
 import os
 import hashlib
 import re
@@ -24,28 +25,21 @@ from charmhelpers.payload.archive import (
     get_archive_handler,
     extract,
 )
+from charmhelpers.core.hookenv import (
+    env_proxy_settings,
+)
 from charmhelpers.core.host import mkdir, check_hash
 
-import six
-if six.PY3:
-    from urllib.request import (
-        build_opener, install_opener, urlopen, urlretrieve,
-        HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler,
-    )
-    from urllib.parse import urlparse, urlunparse, parse_qs
-    from urllib.error import URLError
-else:
-    from urllib import urlretrieve
-    from urllib2 import (
-        build_opener, install_opener, urlopen,
-        HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler,
-        URLError
-    )
-    from urlparse import urlparse, urlunparse, parse_qs
+from urllib.request import (
+    build_opener, install_opener, urlopen, urlretrieve,
+    HTTPPasswordMgrWithDefaultRealm, HTTPBasicAuthHandler,
+    ProxyHandler
+)
+from urllib.parse import urlparse, urlunparse, parse_qs
+from urllib.error import URLError
 
 
 def splituser(host):
-    '''urllib.splituser(), but six's support of this seems broken'''
     _userprog = re.compile('^(.*)@(.*)$')
     match = _userprog.match(host)
     if match:
@@ -54,12 +48,25 @@ def splituser(host):
 
 
 def splitpasswd(user):
-    '''urllib.splitpasswd(), but six's support of this is missing'''
     _passwdprog = re.compile('^([^:]*):(.*)$', re.S)
     match = _passwdprog.match(user)
     if match:
         return match.group(1, 2)
     return user, None
+
+
+@contextlib.contextmanager
+def proxy_env():
+    """
+    Creates a context which temporarily modifies the proxy settings in os.environ.
+    """
+    restore = {**os.environ}  # Copy the current os.environ
+    juju_proxies = env_proxy_settings() or {}
+    os.environ.update(**juju_proxies)  # Insert or Update the os.environ
+    yield os.environ
+    for key in juju_proxies:
+        del os.environ[key]  # remove any keys which were added or updated
+    os.environ.update(**restore)  # restore any original values
 
 
 class ArchiveUrlFetchHandler(BaseFetchHandler):
@@ -92,6 +99,7 @@ class ArchiveUrlFetchHandler(BaseFetchHandler):
         # propagate all exceptions
         # URLError, OSError, etc
         proto, netloc, path, params, query, fragment = urlparse(source)
+        handlers = []
         if proto in ('http', 'https'):
             auth, barehost = splituser(netloc)
             if auth is not None:
@@ -101,10 +109,13 @@ class ArchiveUrlFetchHandler(BaseFetchHandler):
                 # Realm is set to None in add_password to force the username and password
                 # to be used whatever the realm
                 passman.add_password(None, source, username, password)
-                authhandler = HTTPBasicAuthHandler(passman)
-                opener = build_opener(authhandler)
-                install_opener(opener)
-        response = urlopen(source)
+                handlers.append(HTTPBasicAuthHandler(passman))
+
+        with proxy_env():
+            handlers.append(ProxyHandler())
+            opener = build_opener(*handlers)
+            install_opener(opener)
+            response = urlopen(source)
         try:
             with open(dest, 'wb') as dest_file:
                 dest_file.write(response.read())
@@ -150,10 +161,7 @@ class ArchiveUrlFetchHandler(BaseFetchHandler):
             raise UnhandledSource(e.strerror)
         options = parse_qs(url_parts.fragment)
         for key, value in options.items():
-            if not six.PY3:
-                algorithms = hashlib.algorithms
-            else:
-                algorithms = hashlib.algorithms_available
+            algorithms = hashlib.algorithms_available
             if key in algorithms:
                 if len(value) != 1:
                     raise TypeError(

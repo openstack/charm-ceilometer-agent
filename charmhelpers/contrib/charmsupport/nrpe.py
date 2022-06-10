@@ -19,6 +19,7 @@
 
 import glob
 import grp
+import json
 import os
 import pwd
 import re
@@ -28,7 +29,9 @@ import subprocess
 import yaml
 
 from charmhelpers.core.hookenv import (
+    application_name,
     config,
+    ERROR,
     hook_name,
     local_unit,
     log,
@@ -174,7 +177,8 @@ define service {{
             if os.path.exists(os.path.join(path, parts[0])):
                 command = os.path.join(path, parts[0])
                 if len(parts) > 1:
-                    command += " " + " ".join(parts[1:])
+                    safe_args = [shlex.quote(arg) for arg in parts[1:]]
+                    command += " " + " ".join(safe_args)
                 return command
         log('Check command not found: {}'.format(parts[0]))
         return ''
@@ -414,6 +418,20 @@ def add_init_service_checks(nrpe, services, unit_name, immediate_check=True):
     :param str unit_name: Unit name to use in check description
     :param bool immediate_check: For sysv init, run the service check immediately
     """
+    # check_haproxy is redundant in the presence of check_crm. See LP Bug#1880601 for details.
+    # just remove check_haproxy if haproxy is added as a lsb resource in hacluster.
+    for rid in relation_ids("ha"):
+        ha_resources = relation_get("json_resources", rid=rid, unit=local_unit())
+        if ha_resources:
+            try:
+                ha_resources_parsed = json.loads(ha_resources)
+            except ValueError as e:
+                log('Could not parse JSON from ha resources. {}'.format(e), level=ERROR)
+                raise
+            if "lsb:haproxy" in ha_resources_parsed.values():
+                if "haproxy" in services:
+                    log("removed check_haproxy. This service will be monitored by check_crm")
+                    services.remove("haproxy")
     for svc in services:
         # Don't add a check for these services from neutron-gateway
         if svc in ['ext-port', 'os-charm-phy-nic-mtu']:
@@ -520,3 +538,39 @@ def remove_deprecated_check(nrpe, deprecated_services):
     for dep_svc in deprecated_services:
         log('Deprecated service: {}'.format(dep_svc))
         nrpe.remove_check(shortname=dep_svc)
+
+
+def add_deferred_restarts_check(nrpe):
+    """
+    Add NRPE check for services with deferred restarts.
+
+    :param NRPE nrpe: NRPE object to add check to
+    """
+    unit_name = local_unit().replace('/', '-')
+    shortname = unit_name + '_deferred_restarts'
+    check_cmd = 'check_deferred_restarts.py --application {}'.format(
+        application_name())
+
+    log('Adding deferred restarts nrpe check: {}'.format(shortname))
+    nrpe.add_check(
+        shortname=shortname,
+        description='Check deferred service restarts {}'.format(unit_name),
+        check_cmd=check_cmd)
+
+
+def remove_deferred_restarts_check(nrpe):
+    """
+    Remove NRPE check for services with deferred service restarts.
+
+    :param NRPE nrpe: NRPE object to remove check from
+    """
+    unit_name = local_unit().replace('/', '-')
+    shortname = unit_name + '_deferred_restarts'
+    check_cmd = 'check_deferred_restarts.py --application {}'.format(
+        application_name())
+
+    log('Removing deferred restarts nrpe check: {}'.format(shortname))
+    nrpe.remove_check(
+        shortname=shortname,
+        description='Check deferred service restarts {}'.format(unit_name),
+        check_cmd=check_cmd)

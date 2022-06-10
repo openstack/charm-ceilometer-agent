@@ -14,8 +14,8 @@ machines:
     constraints: mem=3072M
   '3':
   '4':
-    # machine for memcached; doesn't have a focal+ version yet.
-    series: bionic
+    # Note that holding memcached at focal as it's not available at jammy yet.
+    series: focal
   '5':
   '6':
   '7':
@@ -78,8 +78,8 @@ applications:
   memcached:
     charm: ch:memcached
     num_units: 1
-    # hold at bionic as no focal/groovy version of the charm yet
-    series: bionic
+    # Note that holding memcached at focal as it's not available at jammy yet.
+    series: focal
     to:
       - '4'
 
@@ -94,7 +94,7 @@ applications:
       - '5'
       - '6'
       - '7'
-    channel: quincy/edge
+    channel: latest/edge
 
   ceph-mon:
     charm: ch:ceph-mon
@@ -105,7 +105,7 @@ applications:
       - '8'
       - '9'
       - '10'
-    channel: quincy/edge
+    channel: latest/edge
 
   keystone:
     charm: ch:keystone
@@ -114,7 +114,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '11'
-    channel: yoga/edge
+    channel: latest/edge
 
   glance:
     charm: ch:glance
@@ -123,7 +123,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '12'
-    channel: yoga/edge
+    channel: latest/edge
 
   nova-cloud-controller:
     charm: ch:nova-cloud-controller
@@ -133,7 +133,7 @@ applications:
       network-manager: Neutron
     to:
       - '13'
-    channel: yoga/edge
+    channel: latest/edge
 
   nova-compute:
     charm: ch:nova-compute
@@ -142,7 +142,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '14'
-    channel: yoga/edge
+    channel: latest/edge
 
   neutron-api:
     charm: ch:neutron-api
@@ -154,7 +154,7 @@ applications:
       neutron-security-groups: true
     to:
       - '15'
-    channel: yoga/edge
+    channel: latest/edge
 
   neutron-gateway:
     charm: ch:neutron-gateway
@@ -164,11 +164,11 @@ applications:
       bridge-mappings: physnet1:br-ex
     to:
       - '16'
-    channel: yoga/edge
+    channel: latest/edge
 
   neutron-openvswitch:
     charm: ch:neutron-openvswitch
-    channel: yoga/edge
+    channel: latest/edge
 
   ceilometer:
     charm: ch:ceilometer
@@ -180,7 +180,7 @@ applications:
       polling-batch-size: 0
     to:
       - '17'
-    channel: yoga/edge
+    channel: latest/edge
 
   gnocchi:
     charm: ch:gnocchi
@@ -189,7 +189,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '18'
-    channel: yoga/edge
+    channel: latest/edge
 
   placement:
     charm: ch:placement
@@ -199,7 +199,7 @@ applications:
       openstack-origin: *openstack-origin
     to:
       - '19'
-    channel: yoga/edge
+    channel: latest/edge
 
   ceilometer-agent:
     charm: ../../ceilometer-agent.charm

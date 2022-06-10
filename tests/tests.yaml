@@ -9,15 +9,15 @@ configure:
   - zaza.openstack.charm_tests.nova.setup.manage_ssh_key
 
 gate_bundles:
-  - focal-xena
-  - impish-xena
-
-dev_bundles:
-  - focal-yoga
   - jammy-yoga
 
+dev_bundles:
+  - jammy-yoga
+  - jammy-zed
+  - kinetic-zed
+
 smoke_bundles:
-  - focal-xena
+  - jammy-yoga
 
 tests:
   - zaza.openstack.charm_tests.ceilometer.tests.CeilometerTest
@@ -30,5 +30,4 @@ target_deploy_status:
 
 tests_options:
   force_deploy:
-    - impish-xena
-    - jammy-yoga
+    - kinetic-zed
