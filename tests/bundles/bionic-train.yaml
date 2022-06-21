@@ -1,3 +1,5 @@
+local_overlay_enabled: False
+
 options:
   source: &source cloud:bionic-train
 
@@ -27,25 +29,27 @@ machines:
 
 applications:
   percona-cluster:
-    charm: cs:~openstack-charmers/percona-cluster
+    charm: ch:percona-cluster
     num_units: 1
     options:
       max-connections: 1000
       innodb-buffer-pool-size: 256M
     to:
       - '0'
+    channel: 5.7/edge
   rabbitmq-server:
-    charm: cs:~openstack-charmers/rabbitmq-server
+    charm: ch:rabbitmq-server
     num_units: 1
     to:
       - '1'
+    channel: 3.6/edge
   memcached:
-    charm: cs:~memcached-team/memcached
+    charm: ch:memcached
     num_units: 1
     to:
       - '2'
   ceph-osd:
-    charm: cs:~openstack-charmers/ceph-osd
+    charm: ch:ceph-osd
     num_units: 3
     storage:
       osd-devices: 'cinder,10G'
@@ -55,8 +59,9 @@ applications:
       - '3'
       - '4'
       - '5'
+    channel: nautilus/edge
   ceph-mon:
-    charm: cs:~openstack-charmers/ceph-mon
+    charm: ch:ceph-mon
     num_units: 3
     options:
       source: *source
@@ -64,37 +69,42 @@ applications:
       - '6'
       - '7'
       - '8'
+    channel: nautilus/edge
   keystone:
-    charm: cs:~openstack-charmers/keystone
+    charm: ch:keystone
     num_units: 1
     options:
       openstack-origin: *source
     to:
       - '9'
+    channel: train/edge
   glance:
-    charm: cs:~openstack-charmers/glance
+    charm: ch:glance
     num_units: 1
     options:
       openstack-origin: *source
     to:
       - '10'
+    channel: train/edge
   nova-cloud-controller:
-    charm: cs:~openstack-charmers/nova-cloud-controller
+    charm: ch:nova-cloud-controller
     num_units: 1
     options:
       openstack-origin: *source
       network-manager: Neutron
     to:
       - '11'
+    channel: train/edge
   nova-compute:
-    charm: cs:~openstack-charmers/nova-compute
+    charm: ch:nova-compute
     num_units: 1
     options:
       openstack-origin: *source
     to:
       - '12'
+    channel: train/edge
   neutron-api:
-    charm: cs:~openstack-charmers/neutron-api
+    charm: ch:neutron-api
     num_units: 1
     options:
       openstack-origin: *source
@@ -102,18 +112,21 @@ applications:
       neutron-security-groups: true
     to:
       - '13'
+    channel: train/edge
   neutron-gateway:
-    charm: cs:~openstack-charmers/neutron-gateway
+    charm: ch:neutron-gateway
     num_units: 1
     options:
       openstack-origin: *source
       bridge-mappings: physnet1:br-ex
     to:
       - '14'
+    channel: train/edge
   neutron-openvswitch:
-    charm: cs:~openstack-charmers/neutron-openvswitch
+    charm: ch:neutron-openvswitch
+    channel: train/edge
   ceilometer:
-    charm: cs:~openstack-charmers/ceilometer
+    charm: ch:ceilometer
     num_units: 1
     options:
       openstack-origin: *source
@@ -122,22 +135,26 @@ applications:
       polling-batch-size: 0
     to:
       - '15'
+    channel: train/edge
   gnocchi:
-    charm: cs:~openstack-charmers/gnocchi
+    charm: ch:gnocchi
     num_units: 1
     options:
       openstack-origin: *source
     to:
       - '16'
+    channel: train/edge
   placement:
-    charm: cs:~openstack-charmers/placement
+    charm: ch:placement
     num_units: 1
     constraints: mem=1G
     options:
       openstack-origin: *source
     to:
       - '17'
+    channel: train/edge
   ceilometer-agent:
+    charm: ../../ceilometer-agent.charm
     options:
       polling-interval: 10
       enable-all-pollsters: true

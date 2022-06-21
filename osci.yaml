@@ -1,27 +1,11 @@
 - project:
     templates:
-      - charm-unit-jobs
-    check:
-      jobs:
-      - xenial-mitaka_ceilometer-agent
-      - bionic-queens
-      - bionic-stein
-      - bionic-train
-      - bionic-ussuri
-      - focal-ussuri
-      - focal-victoria
-      - focal-wallaby
-      - focal-xena:
-          voting: false
-      - groovy-victoria
-      - hirsute-wallaby
-      - impish-xena:
-          voting: false
-
-- job:
-    name: xenial-mitaka_ceilometer-agent
-    parent: func-target
-    dependencies:
-      - bionic-ussuri
+      - charm-unit-jobs-py36
+      - charm-queens-functional-jobs
+      - charm-rocky-functional-jobs
+      - charm-stein-functional-jobs
+      - charm-train-functional-jobs
     vars:
-      tox_extra_args: mitaka:xenial-mitaka
+      needs_charm_build: true
+      charm_build_name: ceilometer-agent
+      build_type: charmcraft

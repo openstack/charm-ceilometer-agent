@@ -1,8 +1,6 @@
 charm_name: ceilometer-agent
 
 configure:
-  - mitaka:
-    - zaza.openstack.charm_tests.ceilometer.setup.basic_setup
   - zaza.openstack.charm_tests.ceilometer.setup.basic_setup
   - zaza.openstack.charm_tests.glance.setup.add_lts_image
   - zaza.openstack.charm_tests.keystone.setup.add_demo_user
@@ -11,31 +9,16 @@ configure:
   - zaza.openstack.charm_tests.nova.setup.manage_ssh_key
 
 gate_bundles:
-  - mitaka: xenial-mitaka
   - bionic-queens
-  - bionic-train
-  - bionic-ussuri
-  - focal-ussuri
-  - focal-victoria
-  - focal-wallaby
-  - focal-xena
-  - groovy-victoria
-  - hirsute-wallaby
-  - impish-xena
-
-dev_bundles:
-  - mitaka: trusty-mitaka
-  - xenial-ocata
-  - xenial-pike
-  - xenial-queens
   - bionic-rocky
+  - bionic-stein
+  - bionic-train
 
-smoke_bundles:
-  - focal-ussuri
+dev_bundles: []
+
+smoke_bundles: []
 
 tests:
-  - mitaka:
-    - zaza.openstack.charm_tests.ceilometer.tests.CeilometerTest
   - zaza.openstack.charm_tests.ceilometer.tests.CeilometerTest
   - zaza.openstack.charm_tests.ceilometer_agent.tests.CeilometerAgentTest
 
@@ -45,7 +28,4 @@ target_deploy_status:
     workload-status-message: "Run the ceilometer-upgrade action on the leader to initialize ceilometer and gnocchi"
 
 tests_options:
-  force_deploy:
-    - trusty-mitaka
-    - hirsute-wallaby
-    - impish-xena
+  force_deploy: []
