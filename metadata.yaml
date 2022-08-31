@@ -18,6 +18,7 @@ tags:
 - misc
 series:
 - jammy
+- kinetic
 provides:
   nrpe-external-master:
     interface: nrpe-external-master
