@@ -61,6 +61,7 @@ from charmhelpers.core.hookenv import (
     network_get_primary_address,
     WARNING,
     service_name,
+    remote_service_name,
 )
 
 from charmhelpers.core.sysctl import create as sysctl_create
@@ -348,6 +349,14 @@ def db_ssl(rdata, ctxt, ssl_dir):
 
 class IdentityServiceContext(OSContextGenerator):
 
+    _forward_compat_remaps = {
+        'admin_user': 'admin-user-name',
+        'service_username': 'service-user-name',
+        'service_tenant': 'service-project-name',
+        'service_tenant_id': 'service-project-id',
+        'service_domain': 'service-domain-name',
+    }
+
     def __init__(self,
                  service=None,
                  service_user=None,
@@ -400,11 +409,16 @@ class IdentityServiceContext(OSContextGenerator):
         # 'www_authenticate_uri' replaced 'auth_uri' since Stein,
         # see keystonemiddleware upstream sources for more info
         if CompareOpenStackReleases(keystonemiddleware_os_rel) >= 'stein':
-            c.update((
-                ('www_authenticate_uri', "{}://{}:{}/v3".format(
-                    ctxt.get('service_protocol', ''),
-                    ctxt.get('service_host', ''),
-                    ctxt.get('service_port', ''))),))
+            if 'public_auth_url' in ctxt:
+                c.update((
+                    ('www_authenticate_uri', '{}/v3'.format(
+                        ctxt.get('public_auth_url'))),))
+            else:
+                c.update((
+                    ('www_authenticate_uri', "{}://{}:{}/v3".format(
+                        ctxt.get('service_protocol', ''),
+                        ctxt.get('service_host', ''),
+                        ctxt.get('service_port', ''))),))
         else:
             c.update((
                 ('auth_uri', "{}://{}:{}/v3".format(
@@ -412,11 +426,17 @@ class IdentityServiceContext(OSContextGenerator):
                     ctxt.get('service_host', ''),
                     ctxt.get('service_port', ''))),))
 
+        if 'internal_auth_url' in ctxt:
+            c.update((
+                ('auth_url', ctxt.get('internal_auth_url')),))
+        else:
+            c.update((
+                ('auth_url', "{}://{}:{}/v3".format(
+                    ctxt.get('auth_protocol', ''),
+                    ctxt.get('auth_host', ''),
+                    ctxt.get('auth_port', ''))),))
+
         c.update((
-            ('auth_url', "{}://{}:{}/v3".format(
-                ctxt.get('auth_protocol', ''),
-                ctxt.get('auth_host', ''),
-                ctxt.get('auth_port', ''))),
             ('project_domain_name', ctxt.get('admin_domain_name', '')),
             ('user_domain_name', ctxt.get('admin_domain_name', '')),
             ('project_name', ctxt.get('admin_tenant_name', '')),
@@ -444,7 +464,27 @@ class IdentityServiceContext(OSContextGenerator):
         for rid in relation_ids(self.rel_name):
             self.related = True
             for unit in related_units(rid):
-                rdata = relation_get(rid=rid, unit=unit)
+                rdata = {}
+                # NOTE(jamespage):
+                # forwards compat with application data
+                # bag driven approach to relation.
+                _adata = relation_get(rid=rid, app=remote_service_name(rid))
+                if _adata:
+                    # New app data bag uses - instead of _
+                    # in key names - remap for compat with
+                    # existing relation data keys
+                    for key, value in _adata.items():
+                        if key == 'api-version':
+                            rdata[key.replace('-', '_')] = value.strip('v')
+                        else:
+                            rdata[key.replace('-', '_')] = value
+                    # Re-map some keys for backwards compatibility
+                    for target, source in self._forward_compat_remaps.items():
+                        rdata[target] = _adata.get(source)
+                else:
+                    # No app data bag presented - fallback
+                    # to legacy unit based relation data
+                    rdata = relation_get(rid=rid, unit=unit)
                 serv_host = rdata.get('service_host')
                 serv_host = format_ipv6_addr(serv_host) or serv_host
                 auth_host = rdata.get('auth_host')
@@ -477,6 +517,19 @@ class IdentityServiceContext(OSContextGenerator):
                         'admin_domain_name': rdata.get('service_domain'),
                         'service_project_id': rdata.get('service_tenant_id'),
                         'service_domain_id': rdata.get('service_domain_id')})
+
+                # NOTE:
+                # keystone-k8s operator presents full URLS
+                # for all three endpoints - public and internal are
+                # externally addressable for machine based charm
+                if 'public_auth_url' in rdata:
+                    ctxt.update({
+                        'public_auth_url': rdata.get('public_auth_url'),
+                    })
+                if 'internal_auth_url' in rdata:
+                    ctxt.update({
+                        'internal_auth_url': rdata.get('internal_auth_url'),
+                    })
 
                 # we keep all veriables in ctxt for compatibility and
                 # add nested dictionary for keystone_authtoken generic
