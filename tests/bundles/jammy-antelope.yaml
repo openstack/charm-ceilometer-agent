@@ -1,5 +1,5 @@
 variables:
-  openstack-origin: &openstack-origin distro
+  openstack-origin: &openstack-origin cloud:jammy-antelope
 
 series: jammy
 
@@ -206,6 +206,7 @@ applications:
       # NOTE(lourot): we normally set this to `true` in other bundles in order
       # to validate more metrics but this is broken on Wallaby. See lp:1938884
       enable-all-pollsters: false
+
 
 relations:
 
