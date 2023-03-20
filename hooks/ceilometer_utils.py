@@ -139,7 +139,7 @@ def get_packages():
     packages = deepcopy(CEILOMETER_AGENT_PACKAGES)
     packages.extend(token_cache_pkgs(release=release))
 
-    if release >= 'rocky':
+    if CompareOpenStackReleases(release) >= 'rocky':
         packages = [p for p in packages if not p.startswith('python-')]
         packages.extend(PY3_PACKAGES)
 
@@ -154,7 +154,7 @@ def determine_purge_packages():
     :returns: list of package names
     '''
     release = _get_current_release()
-    if release >= 'rocky':
+    if CompareOpenStackReleases(release) >= 'rocky':
         pkgs = [p for p in CEILOMETER_AGENT_PACKAGES
                 if p.startswith('python-')]
         return pkgs
@@ -213,7 +213,7 @@ def determine_held_packages():
     '''Return a list of packages to mark as candidates for removal
     for the current OS release'''
     release = _get_current_release()
-    if release >= 'rocky':
+    if CompareOpenStackReleases(release) >= 'queens':
         return HELD_PACKAGES
     return []
 
