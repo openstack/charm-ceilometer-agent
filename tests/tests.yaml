@@ -13,7 +13,6 @@ gate_bundles:
 
 dev_bundles:
   - jammy-antelope
-  - kinetic-zed
   - lunar-antelope
 
 smoke_bundles:
@@ -30,5 +29,4 @@ target_deploy_status:
 
 tests_options:
   force_deploy:
-    - kinetic-zed
     - lunar-antelope
