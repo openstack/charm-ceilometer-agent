@@ -18,8 +18,8 @@ tags:
 - misc
 series:
 - jammy
-- kinetic
 - lunar
+- mantic
 provides:
   nrpe-external-master:
     interface: nrpe-external-master

@@ -9,14 +9,15 @@ configure:
   - zaza.openstack.charm_tests.nova.setup.manage_ssh_key
 
 gate_bundles:
-  - jammy-zed
+  - jammy-antelope
 
 dev_bundles:
-  - jammy-antelope
+  - jammy-bobcat
   - lunar-antelope
+  - mantic-bobcat
 
 smoke_bundles:
-  - jammy-zed
+  - jammy-antelope
 
 tests:
   - zaza.openstack.charm_tests.ceilometer.tests.CeilometerTest
@@ -30,3 +31,4 @@ target_deploy_status:
 tests_options:
   force_deploy:
     - lunar-antelope
+    - mantic-bobcat
