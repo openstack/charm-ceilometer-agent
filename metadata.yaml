@@ -18,7 +18,6 @@ tags:
 - misc
 series:
 - jammy
-- lunar
 - mantic
 provides:
   nrpe-external-master:
