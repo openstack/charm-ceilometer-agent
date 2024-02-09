@@ -13,13 +13,11 @@ description: |
   This charm should be used in conjunction with the ceilometer and nova-compute
   charms to collect OpenStack measurements.
 tags:
-- openstack
-- telemetry
-- misc
+  - openstack
+  - telemetry
+  - misc
 series:
-- jammy
-- lunar
-- mantic
+  - jammy
 provides:
   nrpe-external-master:
     interface: nrpe-external-master
