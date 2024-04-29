@@ -92,7 +92,7 @@ applications:
       - '5'
       - '6'
       - '7'
-    channel: reef/edge
+    channel: squid/edge
 
   ceph-mon:
     charm: ch:ceph-mon
@@ -103,7 +103,7 @@ applications:
       - '8'
       - '9'
       - '10'
-    channel: reef/edge
+    channel: squid/edge
 
   keystone:
     charm: ch:keystone

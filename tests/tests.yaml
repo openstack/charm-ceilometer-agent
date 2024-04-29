@@ -12,8 +12,7 @@ gate_bundles:
   - jammy-antelope
   - jammy-bobcat
   - jammy-caracal
-dev_bundles:
-  - noble-caracal
+dev_bundles: []
 smoke_bundles:
   - jammy-caracal
 tests:
@@ -26,5 +25,4 @@ target_deploy_status:
     workload-status-message: "Run the ceilometer-upgrade action on the leader to initialize ceilometer and gnocchi"
 
 tests_options:
-  force_deploy:
-    - noble-caracal
+  force_deploy: []
