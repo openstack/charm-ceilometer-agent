@@ -16,8 +16,6 @@ tags:
   - openstack
   - telemetry
   - misc
-series:
-  - jammy
 provides:
   nrpe-external-master:
     interface: nrpe-external-master

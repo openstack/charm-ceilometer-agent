@@ -9,13 +9,11 @@ configure:
   - zaza.openstack.charm_tests.nova.setup.manage_ssh_key
 
 gate_bundles:
-  - jammy-antelope
-  - jammy-bobcat
-  - jammy-caracal
+  - noble-caracal
 dev_bundles:
   - noble-caracal
 smoke_bundles:
-  - jammy-caracal
+  - noble-caracal
 tests:
   - zaza.openstack.charm_tests.ceilometer.tests.CeilometerTest
   - zaza.openstack.charm_tests.ceilometer_agent.tests.CeilometerAgentTest
