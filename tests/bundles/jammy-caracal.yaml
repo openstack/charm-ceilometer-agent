@@ -200,7 +200,7 @@ applications:
     channel: 2024.1/edge
 
   ceilometer-agent:
-    charm: ../../ceilometer-agent.charm
+    charm: ../../ceilometer-agent_ubuntu@22.04-amd64.charm
     options:
       polling-interval: 10
       # NOTE(lourot): we normally set this to `true` in other bundles in order
