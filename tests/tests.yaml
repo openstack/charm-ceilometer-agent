@@ -13,7 +13,6 @@ gate_bundles:
 
 dev_bundles:
   - jammy-antelope
-  - lunar-antelope
 
 smoke_bundles:
   - jammy-zed
@@ -26,7 +25,3 @@ target_deploy_status:
   ceilometer:
     workload-status: blocked
     workload-status-message: "Run the ceilometer-upgrade action on the leader to initialize ceilometer and gnocchi"
-
-tests_options:
-  force_deploy:
-    - lunar-antelope
