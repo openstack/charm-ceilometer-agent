@@ -14,7 +14,6 @@ gate_bundles:
 dev_bundles:
   - jammy-yoga
   - jammy-zed
-  - kinetic-zed
 
 smoke_bundles:
   - jammy-yoga
@@ -27,7 +26,3 @@ target_deploy_status:
   ceilometer:
     workload-status: blocked
     workload-status-message: "Run the ceilometer-upgrade action on the leader to initialize ceilometer and gnocchi"
-
-tests_options:
-  force_deploy:
-    - kinetic-zed
