@@ -16,8 +16,6 @@ machines:
     constraints: mem=3072M
   '3':
   '4':
-    # machine for memcached; doesn't have a focal+ version yet.
-    series: bionic
   '5':
   '6':
   '7':
@@ -80,8 +78,6 @@ applications:
   memcached:
     charm: ch:memcached
     num_units: 1
-    # hold at bionic as no focal version of the charm yet
-    series: bionic
     to:
       - '4'
 
@@ -204,7 +200,7 @@ applications:
     channel: yoga/edge
 
   ceilometer-agent:
-    charm: ../../ceilometer-agent.charm
+    charm: ../../ceilometer-agent_ubuntu@20.04-amd64.charm
     options:
       polling-interval: 10
       # NOTE(lourot): we normally set this to `true` in other bundles in order
