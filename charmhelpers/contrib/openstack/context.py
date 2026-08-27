@@ -25,7 +25,10 @@ import socket
 import time
 
 from base64 import b64decode
-from distutils.version import LooseVersion
+try:
+    from distutils.version import LooseVersion
+except ImportError:
+    from looseversion import LooseVersion
 from subprocess import (
     check_call,
     check_output,
@@ -360,6 +363,31 @@ def db_ssl(rdata, ctxt, ssl_dir):
         ctxt['database_ssl_key'] = key_path
 
     return ctxt
+
+
+class OsloDBContext(OSContextGenerator):
+    """Context for configuring Oslo database connection pooling options."""
+
+    def __call__(self):
+        ctxt = {}
+
+        try:
+            max_pool_size = config('db-max-pool-size')
+        except Exception:
+            max_pool_size = None
+
+        try:
+            max_overflow = config('db-max-overflow')
+        except Exception:
+            max_overflow = None
+
+        if max_pool_size is not None and max_pool_size >= 0:
+            ctxt['db_max_pool_size'] = max_pool_size
+
+        if max_overflow is not None and max_overflow >= 0:
+            ctxt['db_max_overflow'] = max_overflow
+
+        return ctxt
 
 
 class IdentityServiceContext(OSContextGenerator):
@@ -1034,6 +1062,9 @@ class HAProxyContext(OSContextGenerator):
         if config('haproxy-connect-timeout'):
             ctxt['haproxy_connect_timeout'] = config('haproxy-connect-timeout')
 
+        if config('haproxy-enable-proxy-protocol'):
+            ctxt['haproxy_enable_proxy_protocol'] = True
+
         if config('prefer-ipv6'):
             ctxt['local_host'] = 'ip6-localhost'
             ctxt['haproxy_host'] = '::'
@@ -1125,7 +1156,8 @@ class ApacheSSLContext(OSContextGenerator):
     user = group = 'root'
 
     def enable_modules(self):
-        cmd = ['a2enmod', 'ssl', 'proxy', 'proxy_http', 'headers']
+        # NOTE(seyeongkim) : remoteip is for proxy protocol
+        cmd = ['a2enmod', 'ssl', 'proxy', 'proxy_http', 'headers', 'remoteip']
         check_call(cmd)
 
     def configure_cert(self, cn=None):
@@ -1258,6 +1290,8 @@ class ApacheSSLContext(OSContextGenerator):
                 ctxt['ext_ports'].append(int(ext_port))
 
         ctxt['ext_ports'] = sorted(list(set(ctxt['ext_ports'])))
+        if config('haproxy-enable-proxy-protocol'):
+            ctxt['haproxy_enable_proxy_protocol'] = True
         return ctxt
 
 
@@ -1694,29 +1728,33 @@ MAX_DEFAULT_WORKERS = 4
 DEFAULT_MULTIPLIER = 2
 
 
-def _calculate_workers():
+def _calculate_workers(multiplier=None):
     '''
-    Determine the number of worker processes based on the CPU
-    count of the unit containing the application.
+    Determine the number of worker processes based on the CPU count of the
+    unit containing the application, scaled by the provided multiplier or
+    the worker-multiplier configuration option.
 
     Workers will be limited to MAX_DEFAULT_WORKERS in
-    container environments where no worker-multipler configuration
-    option been set.
+    container environments  when no multiplier is
+    provided and worker-multiplier configuration option has not been set.
 
+    @param multiplier: float: scaling factor for CPU count
     @returns int: number of worker processes to use
     '''
-    multiplier = config('worker-multiplier')
+    cpu_scaling_factor = multiplier
+    if cpu_scaling_factor is None or cpu_scaling_factor <= 0:
+        cpu_scaling_factor = config('worker-multiplier')
 
     # distinguish an empty config and an explicit config as 0.0
-    if multiplier is None:
-        multiplier = DEFAULT_MULTIPLIER
+    if cpu_scaling_factor is None:
+        cpu_scaling_factor = DEFAULT_MULTIPLIER
 
-    count = int(_num_cpus() * multiplier)
+    count = int(_num_cpus() * cpu_scaling_factor)
     if count <= 0:
         # assign at least one worker
         count = 1
 
-    if config('worker-multiplier') is None:
+    if multiplier is None and config('worker-multiplier') is None:
         # NOTE(jamespage): Limit unconfigured worker-multiplier
         #                  to MAX_DEFAULT_WORKERS to avoid insane
         #                  worker configuration on large servers
@@ -1762,11 +1800,41 @@ class WSGIWorkerConfigContext(WorkerConfigContext):
         self.admin_process_weight = admin_process_weight
         self.public_process_weight = public_process_weight
 
+    def enable_modules(self):
+        # NOTE(seyeongkim): this is for proxy protocol and non ssl case.
+        cmd = ['a2enmod', 'remoteip']
+        check_call(cmd)
+
     def __call__(self):
         total_processes = _calculate_workers()
         enable_wsgi_socket_rotation = config('wsgi-socket-rotation')
         if enable_wsgi_socket_rotation is None:
             enable_wsgi_socket_rotation = True
+
+        try:
+            admin_worker_multiplier = config('admin-worker-multiplier')
+        except Exception:
+            admin_worker_multiplier = None
+
+        if admin_worker_multiplier is None or admin_worker_multiplier <= 0:
+            admin_processes = int(math.ceil(
+                self.admin_process_weight * total_processes))
+        else:
+            admin_processes = _calculate_workers(admin_worker_multiplier)
+
+        try:
+            public_worker_multiplier = config('public-worker-multiplier')
+        except Exception:
+            public_worker_multiplier = None
+
+        if public_worker_multiplier is None or public_worker_multiplier <= 0:
+            public_processes = int(math.ceil(
+                self.public_process_weight * total_processes))
+        else:
+            public_processes = _calculate_workers(public_worker_multiplier)
+
+        self.enable_modules()
+
         ctxt = {
             "service_name": self.service_name,
             "user": self.user,
@@ -1775,13 +1843,13 @@ class WSGIWorkerConfigContext(WorkerConfigContext):
             "admin_script": self.admin_script,
             "public_script": self.public_script,
             "processes": int(math.ceil(self.process_weight * total_processes)),
-            "admin_processes": int(math.ceil(self.admin_process_weight *
-                                             total_processes)),
-            "public_processes": int(math.ceil(self.public_process_weight *
-                                              total_processes)),
+            "admin_processes": admin_processes,
+            "public_processes": public_processes,
             "threads": 1,
             "wsgi_socket_rotation": enable_wsgi_socket_rotation,
         }
+        if config('haproxy-enable-proxy-protocol'):
+            ctxt['haproxy_enable_proxy_protocol'] = True
         return ctxt
 
 

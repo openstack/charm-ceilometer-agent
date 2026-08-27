@@ -35,6 +35,10 @@ UBUNTU_RELEASES = (
     'mantic',
     'noble',
     'oracular',
+    'plucky',
+    'questing',
+    'resolute',
+    'stonking',
 )
 
 
